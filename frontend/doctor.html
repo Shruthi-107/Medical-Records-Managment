@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="login.css">
+    <title>Doctor Login</title>
+    <script type="text/javascript" src="validationJS.js"></script>
+</head>
+<body>
+    <section class="login_form">
+        <div class="Login_form-box">
+            <div class="form-value">
+                <form action="#" name="loginform" onsubmit="return validation('loginform');">
+                    <section class="logo_section">
+                    <!-- <div class="logo">
+                        <img src="https://i.ibb.co/F5DTHhC/ONE-CLICK-3.png" alt="logo">
+                    </div> -->
+                    </section>
+                    <h2>DOCTOR LOGIN</h2>
+                    <div class="inputbox">
+                        <ion-icon name="mail-outline"></ion-icon>
+                        <input id= "Email" type="email" required>
+                        <label>ID</label>
+                    </div>
+                    <div class="inputbox">
+                        <ion-icon name="lock-closed-outline"></ion-icon>
+                        <input id= "pwd" type="password" required>
+                        <label>Password</label>
+                    </div>
+                    <!-- <div class="forget">
+                        <label for=""><input type="checkbox">Remember Me <a href="#">Forget Password</a></label>
+                    </div> -->
+                    <button type="submit" value="submit">Log in</button>
+                    <!-- <div class="register">
+                        <p>Don't have an account <a href="signUp_form.html">SignUp</a></p>
+                    </div> -->
+                </form>
+            </div>
+        </div>
+    </section>
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</body>
+</html>
