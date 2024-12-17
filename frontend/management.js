@@ -12,7 +12,7 @@ const content = document.getElementById('content');
 // Add event listeners to update content dynamically
 addDoctor.addEventListener('click', () => {
     content.innerHTML = `
-        <h2>Add Doctor</h2>
+        <h2>Add Doctor</h2><br>
         <form>
             <label for="doctorName">Doctor Name:</label><br>
             <input type="text" id="doctorName" name="doctorName" required><br><br>
