@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Management operations</title>
-    <link rel="stylesheet" href="mdashboard.css">
+    <link rel="stylesheet" href="/static/mdashboard.css">
+     
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='mdashboard.css') }}"> -->
+
 </head>
 <body>
     <div id="viewport">
@@ -83,6 +86,7 @@
           </div>
         </div>
       </div>
-      <script src="management.js"></script>
+      <script src="/static/management.js"></script>
+      <!-- <script src="{{ url_for('static', filename='management.js') }}"></script> -->
 </body>
 </html>
