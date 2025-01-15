@@ -3,11 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Management operations</title>
-    <link rel="stylesheet" href="/static/mdashboard.css">
-     
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='mdashboard.css') }}"> -->
-
+    <title>Management Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='mdashboard.css') }}">
 </head>
 <body>
     <div id="viewport">
@@ -23,21 +20,18 @@
                 <i class="zmdi zmdi-view-dashboard" ></i> Add Doctor
               </a>
             </li>
-
             <br>
             <li>
               <a href="#" id="remove-doctor">
                 <i class="zmdi zmdi-link"></i> Remove Doctor
               </a>
             </li>
-
             <br>
             <li>
               <a href="#" id="add-patient">
                 <i class="zmdi zmdi-widgets"></i> Add Patient
               </a>
             </li>
-
             <br>
             <li>
               <a href="#" id="remove-patient">
@@ -86,7 +80,17 @@
           </div>
         </div>
       </div>
-      <script src="/static/management.js"></script>
+      <script>
+        const apiRoutes = {
+            addDoctor: "{{ url_for('add_doctor') }}",
+            addPatient: "{{ url_for('add_patient') }}",
+            removeDoctor: "{{ url_for('remove_doctor') }}",
+            removePatient: "{{ url_for('remove_patient') }}"
+        };
+    </script>
+    <script src="{{ url_for('static', filename='management.js') }}"></script>
+      <!-- <script src="/static/management.js"></script> -->
       <!-- <script src="{{ url_for('static', filename='management.js') }}"></script> -->
+
 </body>
 </html>
