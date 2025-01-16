@@ -1,6 +1,16 @@
 from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
+from functools import wraps
+
 import mysql.connector
+
+
 app = Flask(__name__)
+app.secret_key = 'aP9s8d7f6g5h4j3k2l1m0n9b8v7c6x5z4'  # Replace with a secure key
+app.permanent_session_lifetime = timedelta(minutes=30)
+
 # Connect to MySQL Database
 def get_db_connection():
     return mysql.connector.connect(
@@ -34,16 +44,106 @@ def test_db():
 
 @app.route('/')
 def index():
-    db = get_db_connection()
-    cursor = db.cursor()
-    cursor.execute('SELECT id, name FROM departments')  # Fetch departments from the database
-    departments = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
-    cursor.execute('SELECT id, name FROM doctors')  # Fetch doctors from the database
-    doctors = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
-    db.close()
+    return render_template('index.html')
 
-    # Pass data to the frontend template
-    return render_template('mdashboard.html', departments=departments, doctors=doctors)
+    # db = get_db_connection()
+    # cursor = db.cursor()
+    # cursor.execute('SELECT id, name FROM departments')  # Fetch departments from the database
+    # departments = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+    # cursor.execute('SELECT id, name FROM doctors')  # Fetch doctors from the database
+    # doctors = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+    # db.close()
+
+    # # Pass data to the frontend template
+    # return render_template('admin_dashboard.html', departments=departments, doctors=doctors)
+
+
+### for doctor login page
+@app.route('/doctor.html')
+def doctor():
+    return render_template('doctor.html')
+
+@app.route('/management.html')
+def management():
+    return render_template('management.html')
+
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        email = request.form['email']
+        password = request.form['pwd']
+        role = request.referrer.split('/')[-1].replace('.html', '')  # Extract the role from the referring page
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        # Select the correct table based on the role
+        if role == 'management':
+            cursor.execute("SELECT * FROM management WHERE email = %s", (email,))
+        elif role == 'doctor':
+            cursor.execute("SELECT * FROM doctors WHERE email = %s", (email,))
+        elif role == 'patient':
+            cursor.execute("SELECT * FROM patients WHERE email = %s", (email,))
+        else:
+            return "Invalid role", 400
+
+        user = cursor.fetchone()
+        db.close()
+        # print(email,user['pwd'],password)
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['role'] = role
+            session.permanent = True  # Session will persist for the defined duration
+
+            # Redirect to role-specific dashboards
+            if role == 'management':
+                return redirect(url_for('admin_dashboard'))
+            elif role == 'doctor':
+                pass
+                # return redirect(url_for('doctor_dashboard'))
+            elif role == 'patient':
+                pass
+                # return redirect(url_for('patient_dashboard'))
+        else:
+            return "Invalid credentials", 401
+
+    except Exception as e:
+        print(email,role=='doctor',password,user['password'],check_password_hash(user['password'], password))
+        return {"success": False, "message": str(e)}, 500
+
+
+def login_required(role=None):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if 'user_id' not in session:
+                return redirect(url_for('login'))
+            if role and session.get('role') != role:
+                return "Unauthorized", 403
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+### decorators
+@app.route('/admin-dashboard')
+@login_required(role='management')
+def admin_dashboard():
+    return render_template('admin_dashboard.html')
+
+@app.route('/doctor-dashboard')
+@login_required(role='doctor')
+def doctor_dashboard():
+    return render_template('doctor_dashboard.html')
+
+@app.route('/patient-dashboard')
+@login_required(role='patient')
+def patient_dashboard():
+    return render_template('patient_dashboard.html')
+
+
+
 
 # Route to handle Add Doctor form submission
 
@@ -54,6 +154,7 @@ def add_doctor():
         email = request.form['email']
         phone = request.form['Phno']
         password = request.form['pwd']
+        hashed_password = generate_password_hash(password)
         department_id = request.form['department']
 
         db = get_db_connection()
@@ -61,7 +162,7 @@ def add_doctor():
         cursor.execute('''
             INSERT INTO doctors (name, email, phone, password, department_id)
             VALUES (%s, %s, %s, %s, %s)
-        ''', (name, email, phone, password, department_id))
+        ''', (name, email, phone, hashed_password, department_id))
         db.commit()
         db.close()
         return {"success": True, "message": "Doctor added successfully!"}, 200
@@ -71,7 +172,6 @@ def add_doctor():
 ### Add Patient
 @app.route('/add-patient', methods=['POST'])
 def add_patient():
-    # if request.method == 'POST':
     try:
         name = request.form['name']
         email = request.form['email']
@@ -91,6 +191,7 @@ def add_patient():
         return {"success": True, "message": "Patient added successfully!"}, 200
     except Exception as e:
         return {"success": False, "message": str(e)}, 400
+
 
 # Route to handle Remove Doctor form submission
 @app.route('/remove-doctor', methods=['POST'])

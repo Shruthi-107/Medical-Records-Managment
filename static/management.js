@@ -32,7 +32,7 @@ addDoctor.addEventListener('click', () => {
                         </tr>
                         <tr>
                             <td><label for="email">Email:</label></td>
-                            <td><input type="email" name="email" placeholder="Enter Email" required></td>
+                            <td><input type="email" name="email" placeholder="Enter Email" value="" required></td>
                         </tr>
                         <tr>
                             <td><label for="department">Department:</label></td>
