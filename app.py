@@ -96,22 +96,24 @@ def login():
             session['user_id'] = user['id']
             session['role'] = role
             session.permanent = True  # Session will persist for the defined duration
-
+            print(email,role=='doctor',user['id'],user['password'])
             # Redirect to role-specific dashboards
             if role == 'management':
                 return redirect(url_for('admin_dashboard'))
             elif role == 'doctor':
-                pass
-                # return redirect(url_for('doctor_dashboard'))
+                # pass
+                return redirect(url_for('doctor_dashboard'))
             elif role == 'patient':
                 pass
                 # return redirect(url_for('patient_dashboard'))
+            
         else:
             return "Invalid credentials", 401
 
     except Exception as e:
         print(email,role=='doctor',password,user['password'],check_password_hash(user['password'], password))
         return {"success": False, "message": str(e)}, 500
+    
 
 
 def login_required(role=None):
@@ -216,6 +218,92 @@ def remove_patient():
         db.commit()
         db.close()
         return redirect(url_for('index'))  # Redirect to dashboard after deletion
+
+############################################ Doctor Dashboard #####################################
+
+@app.route('/doctor/my-profile', methods=['GET'])
+@login_required(role='doctor')
+def my_profile():
+    """Fetch and display the logged-in doctor's profile."""
+    doctor_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT d.name, d.email, d.phone, dep.name AS department
+        FROM doctors d
+        LEFT JOIN departments dep ON d.department_id = dep.id
+        WHERE d.id = %s
+    ''', (doctor_id,))
+    doctor = cursor.fetchone()
+    # print(doctor)
+    db.close()
+
+    if doctor:
+        return {"success": True, "my-profile": doctor}, 200
+    else:
+        return {"success": False, "message": "Doctor not found!"}, 404
+
+
+@app.route('/doctor/my-patients', methods=['GET'])
+@login_required(role='doctor')
+def my_patients():
+    """Fetch the list of patients assigned to the logged-in doctor."""
+    doctor_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT id, name, email, phone, department_id
+        FROM patients
+        WHERE doctor_id = %s
+    ''', (doctor_id,))
+    patients = cursor.fetchall()
+    print(patients)
+    db.close()
+
+    return {"success": True, "my-patients": patients}, 200
+
+
+@app.route('/doctor/my-appointments', methods=['GET'])
+@login_required(role='doctor')
+def my_appointments():
+    """Fetch appointments for the logged-in doctor."""
+    doctor_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT a.id, p.name AS patient_name, a.date, a.status
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE a.doctor_id = %s
+    ''', (doctor_id,))
+    appointments = cursor.fetchall()
+    db.close()
+
+    return {"success": True, "my-appointments": appointments}, 200
+
+
+# @app.route('/doctor-dashboard')
+# @login_required(role='doctor')
+# def doctor_dashboard():
+#     """Render the doctor dashboard."""
+#     return render_template('doctor_dashboard.html')
+
+
+############################################ Logout Route #########################################
+
+@app.route('/doctor/logout', methods=['POST'])
+def logout():
+    """Logout the doctor and clear the session."""
+    session.clear()
+    return redirect(url_for('doctor'))
+
+
+
+
+
+
+
+
 
 # Run the Flask app
 if __name__ == '__main__':

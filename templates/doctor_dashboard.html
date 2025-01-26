@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='mdashboard.css') }}">
+</head>
+<body>
+    <div id="viewport">
+        <!-- Sidebar -->
+        <div id="sidebar">
+          <header>
+            <a href="#">My App</a>
+          </header>
+          <ul class="nav">
+            <br>
+            <li>
+              <a href="#" id="my-profile">
+                <i class="zmdi zmdi-view-dashboard" ></i> My Profile
+              </a>
+            </li>
+            <br>
+            <li>
+              <a href="#" id="my-patients">
+                <i class="zmdi zmdi-link"></i> Patients
+              </a>
+            </li>
+            <br>
+            <li>
+              <a href="#" id="my-appointments">
+                <i class="zmdi zmdi-widgets"></i> Appointments
+              </a>
+            </li>
+            <br>
+            <li>
+              <a href="#" id="logout">
+                <i class="zmdi zmdi-calendar"></i> Logout
+              </a>
+            </li>
+          </ul>
+        </div>
+        <!-- Content -->
+        <div id="content">
+          <div class="container-fluid">
+            <h1>Simple Sidebar</h1>
+            <p>
+              Make sure to keep all page content within the 
+              <code>#content</code>.
+            </p>
+          </div>
+        </div>
+      </div>
+      <script>
+        const apiRoutes = {
+            myprofile: "{{ url_for('my_profile') }}",
+            mypatients: "{{ url_for('my_patients') }}",
+            myappointments: "{{ url_for('my_appointments') }}",
+            logout: "{{ url_for('logout') }}"
+        };
+    </script>
+    <script src="{{ url_for('static', filename='doctor.js') }}"></script>
+      <!-- <script src="/static/management.js"></script> -->
+      <!-- <script src="{{ url_for('static', filename='management.js') }}"></script> -->
+
+</body>
+</html>

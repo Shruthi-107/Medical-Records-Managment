@@ -61,56 +61,6 @@ addDoctor.addEventListener('click', () => {
 });
 
 
-// addDoctor.addEventListener('click', () => {
-//     fetchDepartmentsAndDoctors().then(departments => {
-//         content.innerHTML = `
-//             <form id="add-doctor-form" action="${apiRoutes.addDoctor}" method="post" style="display: flex; justify-content: center;">
-//                 <fieldset style="width: 500px;">
-//                     <legend style="text-align: center;"><h2>Add Doctor</h2></legend>
-//                     <table cellspacing="15px">
-//                         <!---- Name ---->
-//                         <tr>
-//                             <td><label for="name">Name:</label></td>
-//                             <td><input type="text" name="name" placeholder="Enter Doctor's Name" required></td>
-//                         </tr>
-
-//                         <!---- Email ---->
-//                         <tr>
-//                             <td><label for="email">Email:</label></td>
-//                             <td><input type="email" name="email" placeholder="Enter Email" required></td>
-//                         </tr>
-
-//                         <!---- Department ---->
-//                         <tr>
-//                             <td><label for="department">Department:</label></td>
-//                             <td>
-//                                 <select name="department" id="department" required>
-//                                     ${departments.map(dep => `<option value="${dep.id}">${dep.name}</option>`).join('')}
-//                                 </select>
-//                             </td>
-//                         </tr>
-
-//                         <!---- Phone ---->
-//                         <tr>
-//                             <td><label for="Phno">Phone:</label></td>
-//                             <td><input type="tel" name="Phno" placeholder="Enter Phone Number" required></td>
-//                         </tr>
-
-//                         <!---- Password ---->
-//                         <tr>
-//                             <td><label for="pwd">Password:</label></td>
-//                             <td><input type="password" name="pwd" placeholder="Enter Password" required></td>
-//                         </tr>
-//                     </table>
-//                     <br>
-//                     <input type="submit" value="Submit" style="margin-left: 100px;">
-//                     <input type="reset" value="Reset" style="margin-left: 190px;">
-//                 </fieldset>
-//             </form>
-//         `;
-//     });
-// });
-
 addPatient.addEventListener('click', () => {
     fetchDepartmentsAndDoctors().then(({ departments, doctors }) => {
         content.innerHTML = `
@@ -177,66 +127,6 @@ addPatient.addEventListener('click', () => {
         });
     });
 });
-
-// Add Patient form submission
-// addPatient.addEventListener('click', () => {
-//     fetchDepartmentsAndDoctors().then(({departments,doctors}) => {
-//     content.innerHTML = `
-//         <form id="add-patient-form" action="${apiRoutes.addPatient}" method='post' style=" display:flex; justify-content:center;">
-//         <fieldset style="width:500px;">
-//         <legend style="text-align: center;"><h2 id="xyz">Add Patient</h2></legend>
-
-//         <!---- Name ----->
-//         <table cellspacing="15px">
-
-//         <tr>
-//         <td><label for="Name">Name</label></td>
-//         <td><input type="text" placeholder="Name" name="name" required></td>
-//         </tr>
-
-//         <!-----Department--->
-
-//         <tr>
-//         <td><label for="cars">Department:</label></td>
-//         <td>
-//         <select name="department" id="department">
-//         ${departments.map(dep => `<option value="${dep.id}">${dep.name}</option>`).join('')}
-//         </select>
-//         </td>
-//         </tr>
-
-//         <!-----Doctor Assignment-->
-//         <tr>
-//         <td><label for="doctor_id">Assign Doctor:</label></td>
-//         <td>
-//         <select name="doctor_id" id="doctor_id">
-//             ${doctors.map(doc => `<option value="${doc.id}">${doc.name}</option>`).join('')}
-//         </select>
-//         </td>
-//         </tr>
-
-//         <!-----Password----->
-//         <tr>
-//         <td><label for="pwd">Password:</label></td>
-//         <td><input type="password" placeholder="Password" name="pwd" required></td>
-//         </tr>
-
-//         <!---- Phone number ----->
-//         <tr>
-//         <td><label for="Phno">Phone number:</label></td>
-//         <td><input type="tel" placeholder="Phone No" name="Phno" required></td>
-//         </tr>
-
-//         </table>
-
-//         <br>
-//         <input type="submit" value="Submit" style="margin-left:100px;">
-//         <input type="reset" value="Reset" style="margin-left:190px;">
-//         </fieldset>
-//         </form>
-//     `;
-// });
-// });
 
 // Remove Doctor form submission
 removeDoctor.addEventListener('click', () => {
