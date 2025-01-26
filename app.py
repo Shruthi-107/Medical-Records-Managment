@@ -33,11 +33,16 @@ def test_db():
         cursor.execute("SELECT id, name,department_id FROM doctors")
         doctors = [{"id": row[0], "name": row[1], "department_id" : row[2]} for row in cursor.fetchall()]
 
+        # Fetch patients
+        cursor.execute("SELECT id, name,department_id FROM patients")
+        patients = [{"id": row[0], "name": row[1], "department_id" : row[2]} for row in cursor.fetchall()]
+
         db.close()
         return {
             "success": True,
             "departments": departments,
-            "doctors": doctors
+            "doctors": doctors,
+            "patients": patients
         }, 200
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
@@ -145,7 +150,7 @@ def patient_dashboard():
     return render_template('patient_dashboard.html')
 
 
-
+############################################### Admin Dashboard ##########################################
 
 # Route to handle Add Doctor form submission
 
@@ -219,6 +224,32 @@ def remove_patient():
         db.close()
         return redirect(url_for('index'))  # Redirect to dashboard after deletion
 
+# Route to Book appointemnt form submission
+@app.route('/book-appointment', methods=['POST'])
+@login_required(role='management')
+def book_appointment():
+    """Handle booking an appointment."""
+    try:
+        patient_id = request.form['patient_id']
+        department_id=request.form['department_id']
+        doctor_id = request.form['doctor_id']
+        date = request.form['date']
+
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute('''
+            INSERT INTO appointments (patient_id,doctor_id,department_id, date, status)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (patient_id, doctor_id, department_id, date, 'Pending'))
+        db.commit()
+        db.close()
+
+        return {"success": True, "message": "Appointment booked successfully!"}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 400
+
+
+
 ############################################ Doctor Dashboard #####################################
 
 @app.route('/doctor/my-profile', methods=['GET'])
@@ -278,6 +309,7 @@ def my_appointments():
     ''', (doctor_id,))
     appointments = cursor.fetchall()
     db.close()
+    print(appointments)  # Debugging
 
     return {"success": True, "my-appointments": appointments}, 200
 

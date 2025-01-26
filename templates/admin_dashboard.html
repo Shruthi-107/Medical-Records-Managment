@@ -40,8 +40,8 @@
             </li>
             <br>
             <li>
-              <a href="#">
-                <i class="zmdi zmdi-info-outline"></i> About
+              <a href="#" id="book-appointment">
+                <i class="zmdi zmdi-info-outline"></i> Book Appointment
               </a>
             </li>
             <br>
@@ -74,7 +74,8 @@
             addDoctor: "{{ url_for('add_doctor') }}",
             addPatient: "{{ url_for('add_patient') }}",
             removeDoctor: "{{ url_for('remove_doctor') }}",
-            removePatient: "{{ url_for('remove_patient') }}"
+            removePatient: "{{ url_for('remove_patient') }}",
+            bookAppointment: "{{ url_for('book_appointment') }}",
         };
     </script>
     <script src="{{ url_for('static', filename='management.js') }}"></script>

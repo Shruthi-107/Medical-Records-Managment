@@ -1,4 +1,3 @@
-// JavaScript to dynamically load content based on sidebar selection
 
 // // Get content area
 // const content = document.getElementById('content');
@@ -81,11 +80,11 @@ mypatients.addEventListener('click', () => {
                 const patientRows = data['my-patients']//.patients
                     .map(
                         patient => `
-                        <tr>
-                            <td>${patient.id}</td>
-                            <td>${patient.name}</td>
-                            <td>${patient.email}</td>
-                            <td>${patient.phone}</td>
+                        <tr style="border:3px solid #fe4066">
+                            <td style="border:3px solid #fe4066; padding:10px">${patient.id}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${patient.name}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${patient.email}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${patient.phone}</td>
                         </tr>
                     `
                     )
@@ -93,13 +92,13 @@ mypatients.addEventListener('click', () => {
 
                 content.innerHTML = `
                     <h2>Assigned Patients</h2>
-                    <table border="1" cellspacing="0" cellpadding="5">
+                    <table style="border:3px solid #fe4066;border-collapse: collapse;">
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
+                            <tr style="border:3px solid #fe4066">
+                                <th style="border:3px solid #fe4066; padding:10px">ID</th>
+                                <th style="border:3px solid #fe4066; padding:10px">Name</th>
+                                <th style="border:3px solid #fe4066; padding:10px">Email</th>
+                                <th style="border:3px solid #fe4066; padding:10px">Phone</th>
                             </tr>
                         </thead>
                         <tbody>${patientRows}</tbody>
@@ -124,36 +123,51 @@ mypatients.addEventListener('click', () => {
 
 // Display appointments
 myappointments.addEventListener('click', () => {
-    fetchDoctorData(apiRoutes.myappointment).then(data => {
-        const appointmentRows = data['my-appointments'].appointments
-            .map(
-                appt => `
-                <tr>
-                    <td>${appt.id}</td>
-                    <td>${appt.patient_name}</td>
-                    <td>${appt.date}</td>
-                    <td>${appt.status}</td>
-                </tr>
-            `
-            )
-            .join('');
+    fetchDoctorData(apiRoutes.myappointments).then(data => {
+        console.log(data); // Debugging
+        if (data.success && Array.isArray(data['my-appointments'])) {
+            const appointmentRows = data['my-appointments']
+                .map(
+                    appt => `
+                    <tr style="border:3px solid #fe4066">
+                        <td style="border:3px solid #fe4066; padding:10px">${appt.id}</td>
+                        <td style="border:3px solid #fe4066; padding:10px">${appt.patient_name}</td>
+                        <td style="border:3px solid #fe4066; padding:10px">${appt.date}</td>
+                        <td style="border:3px solid #fe4066; padding:10px">${appt.status}</td>
+                    </tr>
+                `
+                )
+                .join('');
 
+            content.innerHTML = `
+                <h2>Appointments</h2>
+                <table style="border:3px solid #fe4066;border-collapse: collapse;">
+                    <thead>
+                        <tr style="border:3px solid #fe4066">
+                            <th style="border:3px solid #fe4066; padding:10px">ID</th>
+                            <th style="border:3px solid #fe4066; padding:10px">Patient Name</th>
+                            <th style="border:3px solid #fe4066; padding:10px">Date</th>
+                            <th style="border:3px solid #fe4066; padding:10px">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${appointmentRows}</tbody>
+                </table>
+            `;
+        } else {
+            content.innerHTML = `
+                <h2>Appointments</h2>
+                <p>No appointments found.</p>
+            `;
+        }
+    }).catch(err => {
+        console.error('Error fetching appointments:', err);
         content.innerHTML = `
             <h2>Appointments</h2>
-            <table border="1" cellspacing="0" cellpadding="5">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Patient Name</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>${appointmentRows}</tbody>
-            </table>
+            <p>Error fetching appointments. Please try again later.</p>
         `;
     });
 });
+
 
 
 // Logout functionality
