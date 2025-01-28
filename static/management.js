@@ -8,6 +8,7 @@ const removeDoctor = document.getElementById('remove-doctor');
 const removePatient = document.getElementById('remove-patient');
 const content = document.getElementById('content');
 const bookAppointment = document.getElementById('book-appointment');
+const logout = document.getElementById('logout');
 
 // Fetch data and dynamically populate forms
 function fetchDepartmentsAndDoctors() {
@@ -168,6 +169,7 @@ removePatient.addEventListener('click', () => {
     `;
 });
 
+// Book appointment
 bookAppointment.addEventListener('click', () => {
     fetchDepartmentsAndDoctors().then(({ doctors, patients,departments }) => {
         content.innerHTML = `
@@ -250,6 +252,17 @@ function submitForm(formId, route) {
         .catch(error => console.error('Error:', error));
     });
 }
+
+//function to logout
+logout.addEventListener('click', () => {
+    fetch(apiRoutes.logout, { method: 'POST' })
+        .then(() => {
+            alert('Logged out successfully!');
+            window.location.href = '/';
+        })
+        .catch(err => console.error('Error during logout:', err));
+});
+
 
 // Call the submitForm function for Add Doctor and Add Patient forms
 submitForm('add-doctor-form', '/add-doctor');

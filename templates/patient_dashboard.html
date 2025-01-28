@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Management Dashboard</title>
+    <title>Patient Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='mdashboard.css') }}">
 </head>
 <body>
@@ -16,44 +16,26 @@
           <ul class="nav">
             <br>
             <li>
-              <a href="#" id="add-doctor">
-                <i class="zmdi zmdi-view-dashboard" ></i> Add Doctor
+              <a href="#" id="patient-profile">
+                <i class="zmdi zmdi-view-dashboard" ></i> My Profile
               </a>
             </li>
             <br>
             <li>
-              <a href="#" id="remove-doctor">
-                <i class="zmdi zmdi-link"></i> Remove Doctor
+              <a href="#" id="request-appointment">
+                <i class="zmdi zmdi-link"></i> Request Appointment
               </a>
             </li>
             <br>
             <li>
-              <a href="#" id="add-patient">
-                <i class="zmdi zmdi-widgets"></i> Add Patient
-              </a>
-            </li>
-            <br>
-            <li>
-              <a href="#" id="remove-patient">
-                <i class="zmdi zmdi-calendar"></i> Remove Patient
-              </a>
-            </li>
-            <br>
-            <li>
-              <a href="#" id="book-appointment">
-                <i class="zmdi zmdi-info-outline"></i> Book Appointment
-              </a>
-            </li>
-            <br>
-            <li>
-              <a href="#">
-                <i class="zmdi zmdi-settings"></i> Services
+              <a href="#" id="patient-appointments">
+                <i class="zmdi zmdi-widgets"></i> Appointments
               </a>
             </li>
             <br>
             <li>
               <a href="#" id="logout">
-                <i class="zmdi zmdi-comment-more"></i> LogOut
+                <i class="zmdi zmdi-calendar"></i> Logout
               </a>
             </li>
           </ul>
@@ -71,15 +53,13 @@
       </div>
       <script>
         const apiRoutes = {
-            addDoctor: "{{ url_for('add_doctor') }}",
-            addPatient: "{{ url_for('add_patient') }}",
-            removeDoctor: "{{ url_for('remove_doctor') }}",
-            removePatient: "{{ url_for('remove_patient') }}",
-            bookAppointment: "{{ url_for('book_appointment') }}",
+            patientprofile: "{{ url_for('patient_profile') }}",
+            requestappointment: "{{ url_for('request_appointment') }}",
+            patientappointments: "{{ url_for('patient_appointments') }}", 
             logout: "{{ url_for('logout') }}"
         };
     </script>
-    <script src="{{ url_for('static', filename='management.js') }}"></script>
+    <script src="{{ url_for('static', filename='patient.js') }}"></script>
       <!-- <script src="/static/management.js"></script> -->
       <!-- <script src="{{ url_for('static', filename='management.js') }}"></script> -->
 

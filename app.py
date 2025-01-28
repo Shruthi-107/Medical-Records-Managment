@@ -72,6 +72,9 @@ def doctor():
 def management():
     return render_template('management.html')
 
+@app.route('/patient.html')
+def patient():
+    return render_template('patient.html')
 
 
 @app.route('/login', methods=['POST'])
@@ -109,8 +112,8 @@ def login():
                 # pass
                 return redirect(url_for('doctor_dashboard'))
             elif role == 'patient':
-                pass
-                # return redirect(url_for('patient_dashboard'))
+                # pass
+                return redirect(url_for('patient_dashboard'))
             
         else:
             return "Invalid credentials", 401
@@ -320,14 +323,120 @@ def my_appointments():
 #     """Render the doctor dashboard."""
 #     return render_template('doctor_dashboard.html')
 
+############################################ Patient Dashboard #####################################
+
+@app.route('/patient/patient-profile', methods=['GET'])
+@login_required(role='patient')
+def patient_profile():
+    """Fetch and display the logged-in patient's profile."""
+    patient_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT p.name, p.email, p.phone, dep.name AS department
+        FROM patients p
+        LEFT JOIN departments dep ON p.department_id = dep.id
+        WHERE p.id = %s
+    ''', (patient_id,))
+    patient = cursor.fetchone()
+    # print(doctor)
+    db.close()
+
+    if patient:
+        return {"success": True, "patient-profile": patient}, 200
+    else:
+        return {"success": False, "message": "patient not found!"}, 404
+
+@app.route('/request-appointment', methods=['POST'])
+@login_required(role='patient')
+def request_appointment():
+    """Handle appointment request by patient."""
+    try:
+        print("Request received!")
+        patient_id = session.get('user_id')  # Automatically get the logged-in patient ID
+        department_id = request.form['department_id']
+        doctor_id = request.form['doctor_id']
+        date = request.form['date']
+
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute('''
+            INSERT INTO appointments (doctor_id, patient_id,department_id, date, status)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (doctor_id, patient_id, department_id,date, 'Pending'))
+        db.commit()
+        db.close()
+
+        return {"success": True, "message": "Appointment request submitted successfully!"}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 400
+
+@app.route('/get-available-doctors', methods=['POST'])
+@login_required(role='patient')  # Ensure this is accessible only by logged-in patients
+def get_available_doctors():
+    """Fetch doctors available for the selected department and time."""
+    try:
+        print("Request received in get!")
+        # Extract the department ID and selected time from the request
+        data = request.get_json()
+        department_id = data['department_id']
+        selected_time = data['selected_time']
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        # Query to fetch doctors in the selected department who are free at the given time
+        cursor.execute('''
+            SELECT d.id, d.name
+            FROM doctors d
+            WHERE d.department_id = %s
+            AND NOT EXISTS (
+                SELECT *
+                FROM appointments a
+                WHERE a.doctor_id = d.id AND a.date = %s
+            )
+
+        ''', (department_id, selected_time))
+
+        available_doctors = cursor.fetchall()
+        db.close()
+
+        # Return the list of available doctors
+        if available_doctors:
+            return {"success": True, "available_doctors": available_doctors}, 200
+        else:
+            return {"success": True, "available_doctors": []}, 200
+
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
+
+@app.route('/patient/patient-appointments', methods=['GET'])
+@login_required(role='patient')
+def patient_appointments():
+    """Fetch appointments for the logged-in doctor."""
+    patient_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT a.id, d.name AS doctor_name, a.date, a.status
+        FROM appointments a
+        JOIN doctors d ON a.doctor_id = d.id
+        WHERE a.patient_id = %s
+    ''', (patient_id,))
+    appointments = cursor.fetchall()
+    db.close()
+    print(appointments)  # Debugging
+
+    return {"success": True, "patient-appointments": appointments}, 200
 
 ############################################ Logout Route #########################################
 
-@app.route('/doctor/logout', methods=['POST'])
+@app.route('/logout', methods=['POST'])
 def logout():
-    """Logout the doctor and clear the session."""
+    """Logout and clear the session."""
     session.clear()
-    return redirect(url_for('doctor'))
+    return redirect(url_for('index'))
 
 
 
