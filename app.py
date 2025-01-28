@@ -296,6 +296,59 @@ def my_patients():
 
     return {"success": True, "my-patients": patients}, 200
 
+## prescription page
+@app.route('/doctor/patient-details/<int:patient_id>', methods=['GET'])
+@login_required(role='doctor')
+def get_patient_details(patient_id):
+    try:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        # Fetch patient details
+        cursor.execute('SELECT id, name, email, phone, comment FROM patients WHERE id = %s', (patient_id,))
+        patient = cursor.fetchone()
+
+        # Fetch prescriptions
+        cursor.execute('SELECT medication, timings, days,date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
+        prescriptions = cursor.fetchall()
+
+        db.close()
+        return {"success": True, "patient": patient, "prescriptions": prescriptions}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
+### add prescription
+@app.route('/doctor/add-prescription', methods=['POST'])
+@login_required(role='doctor')
+def add_prescription():
+    try:
+        doctor_id = session.get('user_id')
+        patient_id = request.form['patient_id']
+        medication = request.form['medication']
+        timings = request.form['timings']
+        days = request.form['days']
+        # date_issued=request.form['date_issued']
+        comments=request.form['comments']
+
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute('''
+            INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days,comments)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (doctor_id, patient_id, medication, timings, days,comments))
+        db.commit()
+        db.close()
+
+        # Log to blockchain
+        # tx = contract.functions.logEvent(
+        #     f"Prescription added: Doctor {doctor_id}, Patient {patient_id}, Medication {medication}"
+        # ).transact({'from': web3.eth.accounts[0]})
+        # web3.eth.wait_for_transaction_receipt(tx)
+
+        return {"success": True, "message": "Prescription added successfully!"}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
 
 @app.route('/doctor/my-appointments', methods=['GET'])
 @login_required(role='doctor')

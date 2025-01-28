@@ -33,7 +33,7 @@ myprofile.addEventListener('click', () => {
             const profile = data['my-profile']; // Extract the "my-profile" object
             content.innerHTML = `
             <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
-                <legend style="text-align: center;color:#fe4066"><h1>My Profile</h1></legend><br>
+                <legend style="text-align: center;color:#fe4066"><h1>My Profile</h1></legend>
                 <table cellspacing="15px">
                         <tr>
                             <td><label for="name"><strong>Name:</strong></label></td>
@@ -70,6 +70,133 @@ myprofile.addEventListener('click', () => {
 });
 
 
+// add prescription
+function attachAddPrescriptionHandler() {
+    const form = document.getElementById('add-prescription-form');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+
+        fetch('/doctor/add-prescription', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Prescription added successfully!');
+                form.reset();
+                // Optionally reload the patient's details to show updated prescriptions
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => console.error('Error:', err));
+    });
+}
+
+// prescription page
+content.addEventListener('click', (e) => {
+    if (e.target && e.target.classList.contains('more-button')) {
+        const patientId = e.target.getAttribute('data-id');
+        fetch(`/doctor/patient-details/${patientId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Display patient details
+                    const patient = data.patient;
+                    content.innerHTML = `
+                        <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
+                            <legend style="text-align: center;color:#fe4066"><h2>Patient Profile</h2></legend>
+                            <table cellspacing="15px">
+                                    <tr>
+                                        <td><label for="name"><strong>Name:</strong></label></td>
+                                        <td><p> ${patient.name}</p></td>
+                                    </tr>
+                                    <tr>
+                                        <td><label for="phn"><strong>Phone:</strong></label></td>
+                                        <td><p> ${patient.phone}</p></td>
+                                    </tr>
+                                    <tr>
+                                        <td><label for="email"><strong>Email:</strong></label></td>
+                                        <td><p> ${patient.email}</p></td>
+                                    </tr>
+                                    <tr>
+                                        <td><label for="comment"><strong>Comment:</strong></label></td>
+                                        <td><p>${patient.comment}</p></td>
+                                    </tr>
+                            </table>
+                        </fieldset>
+
+                        <br>
+                        <br>
+                        <br>
+                        
+                        <h2 style="color:#fe4066">Prescriptions</h2>
+                        <table style="border:3px solid #fe4066; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border:3px solid #fe4066">
+                                    <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Timings</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Days</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Date Issued</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prescriptions-body">
+                                ${data.prescriptions.map(prescription => ` 
+                                    <tr style="border:3px solid #fe4066">
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.date_issued}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.comments}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <br>
+                        <br>
+                        <br>
+                        <form id="add-prescription-form" action="/add-prescription" method="post" style="display: flex; justify-content: center;">
+                        <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
+                        <legend style="text-align: center;color:#fe4066"><h2>Add New Prescription</h2></legend><br>
+                        <table cellspacing="15px">
+                            <tr>
+                                <td><input type="hidden" name="patient_id" value="${patient.id}"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="medication">Medicine Name:</label></td>
+                                <td><input type="text" name="medication" required></td>
+                            </tr>
+                            <tr>
+                                <td><label for="timings">Timings:</label></td>
+                                <td><input type="text" name="timings" required></td>
+                            </tr>
+                            <tr>  
+                                <td><label for="days">Days:</label></td>
+                                <td><input type="number" name="days" required></td>
+                            </tr>
+                            <tr>
+                                <td><label for="comments">Comments:</label></td>
+                                <td><textarea name="comments"></textarea></td>
+                            </tr>
+                        </table>
+                        <button type="submit">Add Prescription</button>
+                        </fieldset>
+                        </form>
+                    `;
+                    attachAddPrescriptionHandler(); // Attach event listener for the prescription form
+                } else {
+                    alert('Error fetching patient details: ' + data.message);
+                }
+            })
+            .catch(err => console.error('Error fetching patient details:', err));
+    }
+});
+
+
+
 
 // Display patients assigned to the doctor
 mypatients.addEventListener('click', () => {
@@ -85,6 +212,9 @@ mypatients.addEventListener('click', () => {
                             <td style="border:3px solid #fe4066; padding:10px">${patient.name}</td>
                             <td style="border:3px solid #fe4066; padding:10px">${patient.email}</td>
                             <td style="border:3px solid #fe4066; padding:10px">${patient.phone}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">
+                                <button class="more-button" data-id="${patient.id}">More</button>
+                            </td>
                         </tr>
                     `
                     )
@@ -99,6 +229,7 @@ mypatients.addEventListener('click', () => {
                                 <th style="border:3px solid #fe4066; padding:10px">Name</th>
                                 <th style="border:3px solid #fe4066; padding:10px">Email</th>
                                 <th style="border:3px solid #fe4066; padding:10px">Phone</th>
+                                <th style="border:3px solid #fe4066; padding:10px">Actions</th>
                             </tr>
                         </thead>
                         <tbody>${patientRows}</tbody>
