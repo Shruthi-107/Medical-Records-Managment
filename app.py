@@ -1,10 +1,40 @@
-from flask import Flask, render_template, request, redirect, url_for
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from functools import wraps
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+import base64
+import os
+from hashlib import sha256
 
+# from Cryptodome.Cipher import AES
+import base64
+import os
 import mysql.connector
+
+# AES key size and padding function
+BLOCK_SIZE = 16  # AES block size
+
+def generate_key(password: str):
+    """Generate a 256-bit AES key from the password"""
+    return sha256(password.encode()).digest()
+
+def encrypt_data(data: str, key: bytes):
+    """Encrypt data using AES"""
+    cipher = AES.new(key, AES.MODE_CBC)
+    ct_bytes = cipher.encrypt(pad(data.encode(), BLOCK_SIZE))
+    iv = base64.b64encode(cipher.iv).decode('utf-8')
+    ct = base64.b64encode(ct_bytes).decode('utf-8')
+    return iv + ct  # Return IV + Ciphertext
+
+def decrypt_data(enc_data: str, key: bytes):
+    """Decrypt data using AES"""
+    iv = base64.b64decode(enc_data[:24])  # Extract IV (first 16 bytes)
+    ct = base64.b64decode(enc_data[24:])  # Extract ciphertext
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = unpad(cipher.decrypt(ct), BLOCK_SIZE)
+    return decrypted_data.decode('utf-8')
 
 
 app = Flask(__name__)
@@ -296,7 +326,9 @@ def my_patients():
 
     return {"success": True, "my-patients": patients}, 200
 
-## prescription page
+from flask import jsonify
+import base64
+
 @app.route('/doctor/patient-details/<int:patient_id>', methods=['GET'])
 @login_required(role='doctor')
 def get_patient_details(patient_id):
@@ -309,13 +341,47 @@ def get_patient_details(patient_id):
         patient = cursor.fetchone()
 
         # Fetch prescriptions
-        cursor.execute('SELECT medication, timings, days,date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
+        cursor.execute('SELECT medication, timings, days, date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
         prescriptions = cursor.fetchall()
 
+        # Decryption key (same key used in encryption)
+        password = 'MySecurePassword123!'
+        key = generate_key(password)
+
+        # Decrypt prescription data
+        for prescription in prescriptions:
+            try:
+                encrypted_medication = prescription['medication']  # Decode from Base64
+                prescription['medication'] = decrypt_data(encrypted_medication, key)  # Decrypt
+            except Exception as decrypt_error:
+                prescription['medication'] = f"Decryption Error: {str(decrypt_error)}"  # Handle errors gracefully
+
         db.close()
-        return {"success": True, "patient": patient, "prescriptions": prescriptions}, 200
+        return jsonify({"success": True, "patient": patient, "prescriptions": prescriptions}), 200
     except Exception as e:
-        return {"success": False, "message": str(e)}, 500
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+## prescription page
+# @app.route('/doctor/patient-details/<int:patient_id>', methods=['GET'])
+# @login_required(role='doctor')
+# def get_patient_details(patient_id):
+#     try:
+#         db = get_db_connection()
+#         cursor = db.cursor(dictionary=True)
+
+#         # Fetch patient details
+#         cursor.execute('SELECT id, name, email, phone, comment FROM patients WHERE id = %s', (patient_id,))
+#         patient = cursor.fetchone()
+
+#         # Fetch prescriptions
+#         cursor.execute('SELECT medication, timings, days,date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
+#         prescriptions = cursor.fetchall()
+
+#         db.close()
+#         return {"success": True, "patient": patient, "prescriptions": prescriptions}, 200
+#     except Exception as e:
+#         return {"success": False, "message": str(e)}, 500
 
 ### add prescription
 @app.route('/doctor/add-prescription', methods=['POST'])
@@ -329,13 +395,17 @@ def add_prescription():
         days = request.form['days']
         # date_issued=request.form['date_issued']
         comments=request.form['comments']
+        
+        password = 'MySecurePassword123!'  # Use a secure password or key
+        key = generate_key(password)
+        encrypted_prescription = encrypt_data(medication, key)
 
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('''
             INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days,comments)
             VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (doctor_id, patient_id, medication, timings, days,comments))
+        ''', (doctor_id, patient_id, encrypted_prescription, timings, days,comments))
         db.commit()
         db.close()
 
