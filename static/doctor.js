@@ -100,40 +100,35 @@ content.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('history-button')) {
         const patientId = e.target.getAttribute('data-id');
 
-        // Fetch patient's history from database & blockchain
         fetch(`/doctor/get-history/${patientId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Display patient details
+                    // ✅ Fix: Make sure `data.patient` exists before using it
+                    if (!data.patient) {
+                        alert('Patient details not found!');
+                        return;
+                    }
+
                     const patient = data.patient;
                     let historyContent = `
                         <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
                             <legend style="text-align: center;color:#fe4066"><h2>Patient Profile</h2></legend>
                             <table cellspacing="15px">
-                                <tr>
-                                    <td><label for="name"><strong>Name:</strong></label></td>
-                                    <td><p> ${patient.name}</p></td>
-                                </tr>
-                                <tr>
-                                    <td><label for="phn"><strong>Phone:</strong></label></td>
-                                    <td><p> ${patient.phone}</p></td>
-                                </tr>
-                                <tr>
-                                    <td><label for="email"><strong>Email:</strong></label></td>
-                                    <td><p> ${patient.email}</p></td>
-                                </tr>
-                                <tr>
-                                    <td><label for="comment"><strong>Comment:</strong></label></td>
-                                    <td><p>${patient.comment || "No comment provided"}</p></td>
-                                </tr>
+                                <tr><td><strong>Name:</strong></td><td>${patient.name}</td></tr>
+                                <tr><td><strong>Phone:</strong></td><td>${patient.phone}</td></tr>
+                                <tr><td><strong>Email:</strong></td><td>${patient.email}</td></tr>
+                                <tr><td><strong>Comment:</strong></td><td>${patient.comment || "No comment provided"}</td></tr>
                             </table>
                         </fieldset>
                         <br>
-                        <h2>Prescription History</h2>
-                        <table style="border:3px solid #fe4066;border-collapse: collapse; width: 100%;">
+                        <br>
+                        <br>
+                        <br>
+                        <h2 style="color:#fe4066;">Prescription History</h2>
+                        <table style="border:3px solid #fe4066;border-collapse: collapse;">
                             <thead>
-                                <tr style="border:3px solid #fe4066">
+                                <tr>
                                     <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
                                     <th style="border:3px solid #fe4066; padding:10px">Timings</th>
                                     <th style="border:3px solid #fe4066; padding:10px">Days</th>
@@ -144,21 +139,20 @@ content.addEventListener('click', (e) => {
                             <tbody>
                     `;
 
-                    // Append all prescriptions
+                    // Append prescriptions
                     data.prescriptions.forEach(prescription => {
                         historyContent += `
                             <tr style="border:3px solid #fe4066">
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
-                                <td style="border:3px solid #fe4066; padding:10px">${prescription.doctor}</td>
-                                <td style="border:3px solid #fe4066; padding:10px">${new Date(prescription.date_issued * 1000).toLocaleString()}</td>
+                                <td style="border:3px solid #fe4066; padding:10px">${prescription.doctor || "Unknown"}</td>
+                                <td style="border:3px solid #fe4066; padding:10px">${new Date(prescription.timestamp * 1000).toLocaleString()}</td>
                             </tr>
                         `;
                     });
 
                     historyContent += `</tbody></table>`;
-
                     content.innerHTML = historyContent;
                 } else {
                     alert('Error fetching Prescription History: ' + data.message);
