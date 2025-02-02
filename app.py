@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, json, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from functools import wraps
@@ -40,6 +40,7 @@ def decrypt_data(enc_data: str, key: bytes):
 app = Flask(__name__)
 app.secret_key = 'aP9s8d7f6g5h4j3k2l1m0n9b8v7c6x5z4'  # Replace with a secure key
 app.permanent_session_lifetime = timedelta(minutes=30)
+
 
 # Connect to MySQL Database
 def get_db_connection():
@@ -92,7 +93,45 @@ def index():
     # # Pass data to the frontend template
     # return render_template('admin_dashboard.html', departments=departments, doctors=doctors)
 
+##################################################### blockchain part ########################################################
+from web3 import Web3
 
+# Connect to Ganache
+ganache_url = "http://127.0.0.1:7545"
+web3 = Web3(Web3.HTTPProvider(ganache_url))
+
+if web3.is_connected():
+    print("✅ Connected to Ganache!")
+
+# Load contract ABI and address
+with open("build/contracts/MedicalRecords.json", "r") as file:
+    contract_data = json.load(file)
+
+contract_abi = contract_data["abi"]
+contract_address = "0x3E3C97c3dFA3aCEC357D07c461F9BbB274C4ef6E"  # Replace with the deployed contract address
+
+# Create contract instance
+contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+
+def add_prescription(doctor_address, patient_address, encrypted_prescription):
+    try:
+        print("in bc add_pre")
+        doctor_address = Web3.to_checksum_address(doctor_address)
+        print("after 1 bc add_pre")
+        patient_address = Web3.to_checksum_address(patient_address)
+        print("after 2 bc add_pre")
+    except ValueError:
+        return "Invalid Ethereum address!"
+
+    tx_hash = contract.functions.addPrescription(patient_address, encrypted_prescription).transact({'from': doctor_address})
+    web3.eth.wait_for_transaction_receipt(tx_hash)
+    return "✅ Prescription added to blockchain!"
+
+def verify_prescription(prescription_id):
+    return contract.functions.verifyPrescription(prescription_id).call()
+
+
+################################################################################################################
 ### for doctor login page
 @app.route('/doctor.html')
 def doctor():
@@ -181,6 +220,21 @@ def doctor_dashboard():
 @login_required(role='patient')
 def patient_dashboard():
     return render_template('patient_dashboard.html')
+
+# #### for blockchain part
+# def get_doctor_patient_addresses(doctor_id, patient_id):
+#     # Connect to the MySQL database
+#     conn = get_db_connection()
+#     cursor = conn.cursor()
+
+#     cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
+#     doctor_address = cursor.fetchone()[0]
+
+#     cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
+#     patient_address = cursor.fetchone()[0]
+
+#     conn.close()
+#     return doctor_address, patient_address
 
 
 ############################################### Admin Dashboard ##########################################
@@ -383,43 +437,148 @@ def get_patient_details(patient_id):
 #     except Exception as e:
 #         return {"success": False, "message": str(e)}, 500
 
-### add prescription
 @app.route('/doctor/add-prescription', methods=['POST'])
 @login_required(role='doctor')
-def add_prescription():
+def add_prescription_doc():
     try:
         doctor_id = session.get('user_id')
         patient_id = request.form['patient_id']
         medication = request.form['medication']
         timings = request.form['timings']
         days = request.form['days']
-        # date_issued=request.form['date_issued']
-        comments=request.form['comments']
-        
-        password = 'MySecurePassword123!'  # Use a secure password or key
+        comments = request.form['comments']
+
+        password = 'MySecurePassword123!'
         key = generate_key(password)
         encrypted_prescription = encrypt_data(medication, key)
 
+        # Get Ethereum addresses from the database
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
+        doctor_address = cursor.fetchone()[0]
+
+        cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
+        patient_address = cursor.fetchone()[0]
+        db.close()
+        print(doctor_address, patient_address,encrypted_prescription)
+        # Add prescription to blockchain
+        add_prescription(doctor_address, patient_address, encrypted_prescription)
+
+        # Add prescription to the database
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('''
-            INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days,comments)
+            INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days, comments)
             VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (doctor_id, patient_id, encrypted_prescription, timings, days,comments))
+        ''', (doctor_id, patient_id, encrypted_prescription, timings, days, comments))
         db.commit()
         db.close()
-
-        # Log to blockchain
-        # tx = contract.functions.logEvent(
-        #     f"Prescription added: Doctor {doctor_id}, Patient {patient_id}, Medication {medication}"
-        # ).transact({'from': web3.eth.accounts[0]})
-        # web3.eth.wait_for_transaction_receipt(tx)
 
         return {"success": True, "message": "Prescription added successfully!"}, 200
     except Exception as e:
         return {"success": False, "message": str(e)}, 500
+    
+@app.route('/doctor/verify-prescription/<int:prescription_id>', methods=['GET'])
+def verify_prescription_route(prescription_id):
+    try:
+        is_valid = verify_prescription(prescription_id)
+        return jsonify({"success": True, "is_valid": is_valid}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
+### get all prescriptions
+@app.route('/doctor/get-history/<int:patient_id>', methods=['GET'])
+@login_required(role='doctor')
+def get_prescription_history(patient_id):
+    try:
+        doctor_id = session.get('user_id')
 
+        # Fetch Ethereum address from the database
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
+        patient_row = cursor.fetchone()
+        db.close()
+
+        if not patient_row:
+            return jsonify({"success": False, "message": "Patient not found"}), 404
+
+        patient_address = patient_row["eth_address"]
+        print("Fetching prescriptions from blockchain for:", patient_address)
+
+        # Fetch all prescriptions from blockchain
+        prescriptions_raw = contract.functions.getAllPrescriptions(patient_address).call()
+
+        # Format the prescription history
+        prescriptions = []
+        for pres in prescriptions_raw:
+            prescriptions.append({
+                "id": pres[0],
+                "doctor": pres[1],
+                "patient": pres[2],
+                "medication": pres[3],
+                "timestamp": pres[4]
+            })
+
+        return jsonify({"success": True, "prescriptions": prescriptions}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+    
+### add prescription
+# @app.route('/doctor/add-prescription', methods=['POST'])
+# @login_required(role='doctor')
+# def add_prescription_doc():
+#     try:
+#         doctor_id = session.get('user_id')
+#         patient_id = request.form['patient_id']
+#         medication = request.form['medication']
+#         timings = request.form['timings']
+#         days = request.form['days']
+#         # date_issued=request.form['date_issued']
+#         comments=request.form['comments']
+#         print("OK")
+#         password = 'MySecurePassword123!'  # Use a secure password or key
+#         key = generate_key(password)
+#         encrypted_prescription = encrypt_data(medication, key)
+
+#         ## blockchain
+#         # print(encrypted_prescription)
+#         # doctor_address, patient_address = get_doctor_patient_addresses(doctor_id, patient_id)
+#         # add_prescription(doctor_address, patient_address, encrypted_prescription)
+
+#         db = get_db_connection()
+#         cursor = db.cursor()
+#         cursor.execute('''
+#             INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days,comments)
+#             VALUES (%s, %s, %s, %s, %s, %s)
+#         ''', (doctor_id, patient_id, encrypted_prescription, timings, days,comments))
+#         db.commit()
+#         db.close()
+
+#         # Log to blockchain
+#         # tx = contract.functions.logEvent(
+#         #     f"Prescription added: Doctor {doctor_id}, Patient {patient_id}, Medication {medication}"
+#         # ).transact({'from': web3.eth.accounts[0]})
+#         # web3.eth.wait_for_transaction_receipt(tx)
+
+#         return {"success": True, "message": "Prescription added successfully!"}, 200
+#     except Exception as e:
+#         return {"success": False, "message": str(e)}, 500
+    
+### verify prescription
+# @app.route('/doctor/verify-prescription/<int:prescription_id>', methods=['GET'])
+# def verify_prescription_route(prescription_id):
+#     # is_valid = verify_prescription(prescription_id)
+#     # return jsonify({"success": is_valid}), 200
+#     try:
+#         # Call blockchain verification function
+#         is_valid = verify_prescription(prescription_id)
+#         return jsonify({"success": True, "is_valid": is_valid}), 200
+#     except Exception as e:
+#         return jsonify({"success": False, "message": str(e)}), 500
+    
 @app.route('/doctor/my-appointments', methods=['GET'])
 @login_required(role='doctor')
 def my_appointments():
