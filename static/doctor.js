@@ -229,7 +229,7 @@ content.addEventListener('click', (e) => {
                         <form id="add-prescription-form" action="/add-prescription" method="post" style="display: flex; justify-content: center;">
                         <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
                         <legend style="text-align: center;color:#fe4066"><h2>Add New Prescription</h2></legend><br>
-                        <table cellspacing="15px">
+                        <table cellspacing="15px" style="margin-left:20%;">
                             <tr>
                                 <td><input type="hidden" name="patient_id" value="${patient.id}"></td>
                             </tr>
@@ -250,7 +250,8 @@ content.addEventListener('click', (e) => {
                                 <td><textarea name="comments"></textarea></td>
                             </tr>
                         </table>
-                        <button type="submit">Add Prescription</button>
+                        <br>
+                        <button style="margin-left:30%;font-weight: bold;;border-radius: 40px;background: #fe4066;color: white;border: none;height:30px;width:200px" type="submit">Add Prescription</button>
                         </fieldset>
                         </form>
                     `;

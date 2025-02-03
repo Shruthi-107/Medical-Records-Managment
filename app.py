@@ -108,7 +108,7 @@ with open("build/contracts/MedicalRecords.json", "r") as file:
     contract_data = json.load(file)
 
 contract_abi = contract_data["abi"]
-contract_address = "0x64f98B76838360DFd607225eD09F7a5c35D70810"  # Replace with the deployed contract address
+contract_address = "0xd5f0a72e500491c1fa7e564471B5FeE33f0ce754"  # Replace with the deployed contract address
 
 # Create contract instance
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
@@ -131,6 +131,13 @@ def add_prescription(doctor_address, patient_address, encrypted_prescription, ti
 def verify_prescription(prescription_id):
     return contract.functions.verifyPrescription(prescription_id).call()
 
+def log_action(user_address, role, action):
+    """Log an action on the blockchain."""
+    
+    tx_hash = contract.functions.logAction(user_address, role, action).transact({'from': web3.eth.accounts[0]})
+    web3.eth.wait_for_transaction_receipt(tx_hash)
+    print("in log action")
+    return "✅ Action logged on blockchain!"
 
 ################################################################################################################
 ### for doctor login page
@@ -174,7 +181,7 @@ def login():
             session['user_id'] = user['id']
             session['role'] = role
             session.permanent = True  # Session will persist for the defined duration
-            print(email,role=='doctor',user['id'],user['password'])
+    
             # Redirect to role-specific dashboards
             if role == 'management':
                 return redirect(url_for('admin_dashboard'))
@@ -224,11 +231,35 @@ def patient_dashboard():
 
 ############################################### Admin Dashboard ##########################################
 
-# Route to handle Add Doctor form submission
+###  view-logs
+@app.route('/admin/view-logs', methods=['GET'])
+# @login_required(role='admin')
+def view_logs():
+    try:
+        logs = contract.functions.getLogs().call()
+        # Decryption key (same key used in encryption)
+        password = 'MySecurePassword123!'
+        key = generate_key(password)
+        formatted_logs = []
+        for log in logs:
+            formatted_logs.append({
+                "id": log[0],
+                "user": decrypt_data(log[1]),
+                "role": log[2],
+                "action": log[3],
+                "timestamp": log[4]
+            })
 
+        return jsonify({"success": True, "logs": formatted_logs}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# Route to handle Add Doctor form submission
 @app.route('/add-doctor', methods=['POST'])
 def add_doctor():
     try:
+        admin_id=session.get('user_id')
         name = request.form['name']
         email = request.form['email']
         phone = request.form['Phno']
@@ -238,12 +269,26 @@ def add_doctor():
 
         db = get_db_connection()
         cursor = db.cursor()
+
+        # Generate Ethereum account
+        account = web3.eth.account.create()
+        eth_address = account.address
+        private_key = account.key.hex()
+
         cursor.execute('''
-            INSERT INTO doctors (name, email, phone, password, department_id)
-            VALUES (%s, %s, %s, %s, %s)
-        ''', (name, email, phone, hashed_password, department_id))
+            INSERT INTO doctors (name, email, phone, password,eth_address,department_id)
+            VALUES (%s, %s, %s, %s,%s, %s)
+        ''', (name, email, phone, hashed_password,eth_address,department_id))
+    
+         # **Log action on blockchain (with admin's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
+        admin_eth_address = cursor.fetchone()[0]
+        
+
+        log_action(admin_eth_address, "admin", f"Added doctor {name}")
         db.commit()
         db.close()
+        
         return {"success": True, "message": "Doctor added successfully!"}, 200
     except Exception as e:
         return {"success": False, "message": str(e)}, 400
@@ -252,19 +297,35 @@ def add_doctor():
 @app.route('/add-patient', methods=['POST'])
 def add_patient():
     try:
+        admin_id=session.get('user_id')
+        print("Admin id",admin_id,type(admin_id))
         name = request.form['name']
         email = request.form['email']
         phone = request.form['Phno']
         password = request.form['pwd']
-        department_id = request.form['department']
+        hashed_password = generate_password_hash(password)
+        department_id = int(request.form['department'])
         doctor_id = request.form['doctor_id']
+
+        # Generate Ethereum account
+        account = web3.eth.account.create()
+        eth_address = account.address
+        private_key = account.key.hex()
 
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('''
-            INSERT INTO patients (name, email, phone, password, department_id, doctor_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        ''', (name, email, phone, password, department_id, doctor_id))
+            INSERT INTO patients (name, email, phone, password, eth_address,department_id, doctor_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ''', (name, email, phone, hashed_password, eth_address, department_id, doctor_id))
+        db.commit()
+        
+
+         # **Log action on blockchain (with admin's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
+        admin_eth_address = cursor.fetchone()[0]
+
+        log_action(admin_eth_address, "admin", f"Added patient {name}")
         db.commit()
         db.close()
         return {"success": True, "message": "Patient added successfully!"}, 200
@@ -276,24 +337,41 @@ def add_patient():
 @app.route('/remove-doctor', methods=['POST'])
 def remove_doctor():
     if request.method == 'POST':
+        admin_id=session.get('user_id')
         doctor_id = request.form['doctorId']
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('DELETE FROM doctors WHERE id = %s', (doctor_id,))
         db.commit()
+        
+        
+         # **Log action on blockchain (with admin's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM admins WHERE id = %s", (admin_id,))
+        admin_eth_address = cursor.fetchone()[0]
         db.close()
+        log_action(admin_eth_address, "admin", f"Removed doctor {doctor_id}")
+
         return redirect(url_for('index'))  # Redirect to dashboard after deletion
 
 # Route to handle Remove Patient form submission
 @app.route('/remove-patient', methods=['POST'])
 def remove_patient():
     if request.method == 'POST':
+        admin_id=session.get('user_id')
         patient_id = request.form['patientId']
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('DELETE FROM patients WHERE id = %s', (patient_id,))
         db.commit()
+        
+
+        # **Log action on blockchain (with admin's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
+        admin_eth_address = cursor.fetchone()[0]
         db.close()
+
+        log_action(admin_eth_address, "admin", f"Removed doctor {patient_id}")
+
         return redirect(url_for('index'))  # Redirect to dashboard after deletion
 
 # Route to Book appointemnt form submission
@@ -319,6 +397,48 @@ def book_appointment():
         return {"success": True, "message": "Appointment booked successfully!"}, 200
     except Exception as e:
         return {"success": False, "message": str(e)}, 400
+
+# Route to check logs
+@app.route('/admin/check-logs', methods=['GET'])
+@login_required(role='management')
+def check_logs():
+    try:
+        # Fetch all logs from blockchain
+        logs_raw = contract.functions.getAllLogs().call()
+        
+        # Decryption key (same key used in encryption)
+        password = 'MySecurePassword123!'
+        key = generate_key(password)
+        
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        # Format logs for display
+        logs = []
+        for log in logs_raw:
+            # Replace 'log[2]' with the actual value of log[2]
+            eth_address = log[1]
+
+            # Execute the query to get the user name
+            cursor.execute("SELECT name FROM management WHERE eth_address = %s;", (eth_address,))
+            user_row = cursor.fetchone()
+            user_name = user_row['name'] if user_row else 'Unknown User'
+            logs.append({
+                "id": log[0],
+                "user": user_name,
+                "role": log[2],
+                "action": log[3],
+                "timestamp": log[4]
+            })
+            print(logs)
+
+        # Close the database connection
+        db.commit()
+        db.close()
+        
+        return jsonify({"success": True, "logs": logs}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 
@@ -372,17 +492,18 @@ import base64
 @login_required(role='doctor')
 def get_patient_details(patient_id):
     try:
+        doctor_id=session.get('user_id')
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
-
+        print("OK before")
         # Fetch patient details
         cursor.execute('SELECT id, name, email, phone, comment FROM patients WHERE id = %s', (patient_id,))
         patient = cursor.fetchone()
-
+        print("ok 1")
         # Fetch prescriptions
         cursor.execute('SELECT medication, timings, days, date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
         prescriptions = cursor.fetchall()
-
+        print("ok 2")
         # Decryption key (same key used in encryption)
         password = 'MySecurePassword123!'
         key = generate_key(password)
@@ -395,7 +516,22 @@ def get_patient_details(patient_id):
             except Exception as decrypt_error:
                 prescription['medication'] = f"Decryption Error: {str(decrypt_error)}"  # Handle errors gracefully
 
+        print("ok 3")
+        # Log action on blockchain (with doctor's Ethereum address)
+        cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
+        doctor_row = cursor.fetchone()
+        if doctor_row:
+            doctor_eth_address = doctor_row['eth_address']
+            print(doctor_eth_address)
+        else:
+            raise Exception("Doctor's Ethereum address not found")
+        
+        print("ok 4")
+        db.commit()
         db.close()
+
+        log_action(doctor_eth_address, "doctor", f"Accessed patient {patient_id}")
+
         return jsonify({"success": True, "patient": patient, "prescriptions": prescriptions}), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -436,8 +572,15 @@ def add_prescription_doc():
             INSERT INTO prescriptions (doctor_id, patient_id, medication, timings, days, comments)
             VALUES (%s, %s, %s, %s, %s, %s)
         ''', (doctor_id, patient_id, encrypted_prescription, timings, days, comments))
+        
+
+        # **Log action on blockchain (with doctors's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
+        doctor_eth_address = cursor.fetchone()[0]
         db.commit()
         db.close()
+
+        log_action(doctor_eth_address, "doctor", f"Added prescription for patient {patient_id}")
 
         return {"success": True, "message": "Prescription added successfully!"}, 200
     except Exception as e:
@@ -484,11 +627,12 @@ def get_prescription_history(patient_id):
             # print("medicine",pres[3])
             db = get_db_connection()
             cursor = db.cursor(dictionary=True)
+
             cursor.execute("SELECT name FROM doctors WHERE eth_address = %s;", (pres[1],))
             doctor_row = cursor.fetchone()
             doctor_name = doctor_row['name'] if doctor_row else 'Unknown Doctor'
 
-            db.close()
+            
             prescriptions.append({
                 "id": pres[0],
                 "doctor": doctor_name,
@@ -499,6 +643,15 @@ def get_prescription_history(patient_id):
                 "comments": pres[6],
                 "timestamp": pres[7]
             })
+
+        # **Log action on blockchain (with doctors's Ethereum address)**
+        cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
+        doctor_eth_address = cursor.fetchone()[0]
+        db.commit()
+        db.close()
+
+        log_action(doctor_eth_address, "doctor", f"accessed prescription history of patient {patient_id}")
+
 
         return jsonify({"success": True,"patient": patient_row, "prescriptions": prescriptions}), 200
     except Exception as e:

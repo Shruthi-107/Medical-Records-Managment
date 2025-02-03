@@ -46,8 +46,8 @@
             </li>
             <br>
             <li>
-              <a href="#">
-                <i class="zmdi zmdi-settings"></i> Services
+              <a href="#" id="check-logs">
+                <i class="zmdi zmdi-settings"></i> Check Logs
               </a>
             </li>
             <br>
@@ -76,6 +76,7 @@
             removeDoctor: "{{ url_for('remove_doctor') }}",
             removePatient: "{{ url_for('remove_patient') }}",
             bookAppointment: "{{ url_for('book_appointment') }}",
+            checkLogs:"{{url_for('check_logs')}}",
             logout: "{{ url_for('logout') }}"
         };
     </script>
