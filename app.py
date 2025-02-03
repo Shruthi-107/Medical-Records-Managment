@@ -416,17 +416,27 @@ def check_logs():
         # Format logs for display
         logs = []
         for log in logs_raw:
-            # Replace 'log[2]' with the actual value of log[2]
             eth_address = log[1]
+            role = log[2]
 
-            # Execute the query to get the user name
-            cursor.execute("SELECT name FROM management WHERE eth_address = %s;", (eth_address,))
+            # Execute the query to get the user name based on role
+            if role == 'doctor':
+                cursor.execute("SELECT name FROM doctors WHERE eth_address = %s;", (eth_address,))
+            elif role == 'patient':
+                cursor.execute("SELECT name FROM patients WHERE eth_address = %s;", (eth_address,))
+            elif role == 'admin':
+                cursor.execute("SELECT name FROM management WHERE eth_address = %s;", (eth_address,))
+            else:
+                user_name = 'Unknown User'
+                continue
+
             user_row = cursor.fetchone()
             user_name = user_row['name'] if user_row else 'Unknown User'
+
             logs.append({
                 "id": log[0],
                 "user": user_name,
-                "role": log[2],
+                "role": role,
                 "action": log[3],
                 "timestamp": log[4]
             })
