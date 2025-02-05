@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from functools import wraps
 from Crypto.Cipher import AES
+from cryptography.fernet import Fernet
 from Crypto.Util.Padding import pad, unpad
 import base64
 import os
@@ -16,6 +17,8 @@ import mysql.connector
 
 # AES key size and padding function
 BLOCK_SIZE = 16  # AES block size
+SECRET_KEY = Fernet.generate_key()
+cipher = Fernet(SECRET_KEY)
 
 def generate_key(password: str):
     """Generate a 256-bit AES key from the password"""
@@ -69,12 +72,16 @@ def test_db():
         cursor.execute("SELECT id, name,department_id FROM patients")
         patients = [{"id": row[0], "name": row[1], "department_id" : row[2]} for row in cursor.fetchall()]
 
+        #fetch record managers
+        cursor.execute("SELECT id, name FROM record_manager")
+        record_managers = [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
         db.close()
         return {
             "success": True,
             "departments": departments,
             "doctors": doctors,
-            "patients": patients
+            "patients": patients,
+            "record_managers": record_managers
         }, 200
     except Exception as e:
         return {"success": False, "error": str(e)}, 500
@@ -153,6 +160,9 @@ def management():
 @app.route('/patient.html')
 def patient():
     return render_template('patient.html')
+@app.route('/record_manager.html')
+def record_manager():
+    return render_template('record_manager.html')
 
 
 @app.route('/login', methods=['POST'])
@@ -172,9 +182,11 @@ def login():
             cursor.execute("SELECT * FROM doctors WHERE email = %s", (email,))
         elif role == 'patient':
             cursor.execute("SELECT * FROM patients WHERE email = %s", (email,))
+        elif role == 'record_manager':
+            cursor.execute("SELECT * FROM record_manager WHERE email = %s", (email,))
         else:
             return "Invalid role", 400
-
+        print(role)
         user = cursor.fetchone()
         db.close()
         # print(email,user['pwd'],password)
@@ -192,6 +204,8 @@ def login():
             elif role == 'patient':
                 # pass
                 return redirect(url_for('patient_dashboard'))
+            elif role == 'record_manager':
+                return redirect(url_for('record_manager_dashboard'))
             
         else:
             return "Invalid credentials", 401
@@ -200,19 +214,33 @@ def login():
         print(email,role=='doctor',password,user['password'],check_password_hash(user['password'], password))
         return {"success": False, "message": str(e)}, 500
     
-
-
 def login_required(role=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if 'user_id' not in session:
                 return redirect(url_for('login'))
-            if role and session.get('role') != role:
-                return "Unauthorized", 403
+            if role:
+                if isinstance(role, list) and session.get('role') not in role:
+                    return "Unauthorized", 403
+                elif session.get('role') != role:
+                    return "Unauthorized", 403
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+# def login_required(role=None):
+#     def decorator(func):
+#         @wraps(func)
+#         def wrapper(*args, **kwargs):
+#             if 'user_id' not in session:
+#                 return redirect(url_for('login'))
+#             if role and session.get('role') != role:
+#                 return "Unauthorized", 403
+#             return func(*args, **kwargs)
+#         return wrapper
+#     return decorator
 
 ### decorators
 @app.route('/admin-dashboard')
@@ -230,7 +258,16 @@ def doctor_dashboard():
 def patient_dashboard():
     return render_template('patient_dashboard.html')
 
+@app.route('/record_manager-dashboard')
+@login_required(role='record_manager')
+def record_manager_dashboard():
+    return render_template('record_manager_dashboard.html')
+
+
+
+
 ############################################### Admin Dashboard ##########################################
+
 
 ###  view-logs
 @app.route('/admin/view-logs', methods=['GET'])
@@ -255,6 +292,60 @@ def view_logs():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+
+@app.route('/record_manager/manager-profile', methods=['GET'])
+@login_required(role='record_manager')
+def manager_profile():
+    """Fetch and display the logged-in doctor's profile."""
+    record_manager_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('''
+        SELECT d.name, d.email, d.phone
+        FROM record_manager d
+        WHERE d.id = %s
+    ''', (record_manager_id,))
+    record_manager = cursor.fetchone()
+    # print(doctor)
+    db.commit()
+    db.close()
+
+    if record_manager:
+        return {"success": True, "my-profile": record_manager}, 200
+    else:
+        return {"success": False, "message": "Doctor not found!"}, 404
+    
+# Route to handle Add Doctor form submission
+@app.route('/add-record', methods=['POST'])
+@login_required(role='record_manager')
+def add_record():
+    try:
+        print("NO")
+        admin_id=session.get('user_id')
+        patient_id = request.form['patient_id']
+        uploaded_by = session.get('role')  # Either "record_manager" or "patient"
+        details=request.form['details']
+        # doctor_id = request.form.get('doctor_id')  # Optional
+        file = request.files['file']
+        print("YES")
+        # Read and encrypt file
+        file_data = file.read()
+        encrypted_data = cipher.encrypt(file_data)
+
+        # Store encrypted file in MySQL
+        db = get_db_connection()
+        cursor = db.cursor()
+        cursor.execute('''
+            INSERT INTO medical_files (patient_id, details,uploaded_by, file_name, file_type, file_data)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (patient_id, details,uploaded_by, file.filename, file.content_type, encrypted_data))
+        db.commit()
+        db.close()
+        print("OK")
+
+        return jsonify({"success": True, "message": "File uploaded and encrypted successfully!"}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 # Route to handle Add Doctor form submission
 @app.route('/add-doctor', methods=['POST'])
@@ -556,7 +647,7 @@ def add_prescription_doc():
         cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
         patient_address = cursor.fetchone()[0]
         db.close()
-        print(doctor_address, patient_address, encrypted_prescription)
+        # print(doctor_address, patient_address, encrypted_prescription)
 
         # Add prescription to blockchain
         add_prescription(doctor_address, patient_address, encrypted_prescription, timings, days, comments)

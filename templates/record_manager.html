@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+    <title>Record Manager Login</title>
+    <script type="text/javascript" src="validationJS.js"></script>
+</head>
+<body>
+    <section class="login_form">
+        <div class="Login_form-box">
+            <div class="form-value">
+                <form action="/login" method="POST" name="loginform"> <!--onsubmit="return validation('loginform');">-->
+                    <h2>Record Manager LOGIN</h2>
+                    <div class="inputbox">
+                        <ion-icon name="mail-outline"></ion-icon>
+                        <input id= "email" type="email" name="email" required>
+                        <label>ID</label>
+                    </div>
+                    <div class="inputbox">
+                        <ion-icon name="lock-closed-outline"></ion-icon>
+                        <input id= "pwd" type="password" name="pwd" required>
+                        <label>Password</label>
+                    </div>
+                    <!-- <div class="forget">
+                        <label for=""><input type="checkbox">Remember Me <a href="#">Forget Password</a></label>
+                    </div> -->
+                    <button type="submit" value="recordManager">Log in</button>
+                </form>
+            </div>
+        </div>
+    </section>
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</body>
+</html>
