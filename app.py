@@ -1,3 +1,4 @@
+import traceback
 from flask import Flask, json, render_template, request, redirect, url_for, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
@@ -108,7 +109,7 @@ with open("build/contracts/MedicalRecords.json", "r") as file:
     contract_data = json.load(file)
 
 contract_abi = contract_data["abi"]
-contract_address = "0xd5f0a72e500491c1fa7e564471B5FeE33f0ce754"  # Replace with the deployed contract address
+contract_address = "0x1eF0E7432b80EF09566D820157a926E470Bb6608"  # Replace with the deployed contract address
 
 # Create contract instance
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
@@ -336,43 +337,27 @@ def add_patient():
 # Route to handle Remove Doctor form submission
 @app.route('/remove-doctor', methods=['POST'])
 def remove_doctor():
-    if request.method == 'POST':
-        admin_id=session.get('user_id')
-        doctor_id = request.form['doctorId']
-        db = get_db_connection()
-        cursor = db.cursor()
-        cursor.execute('DELETE FROM doctors WHERE id = %s', (doctor_id,))
-        db.commit()
-        
-        
-         # **Log action on blockchain (with admin's Ethereum address)**
-        cursor.execute("SELECT eth_address FROM admins WHERE id = %s", (admin_id,))
-        admin_eth_address = cursor.fetchone()[0]
-        db.close()
-        log_action(admin_eth_address, "admin", f"Removed doctor {doctor_id}")
+    try:
+        if request.method == 'POST':
+            admin_id=session.get('user_id')
+            doctor_id = request.form['doctorId']
+            db = get_db_connection()
+            cursor = db.cursor()
+            cursor.execute('DELETE FROM doctors WHERE id = %s', (doctor_id,))
 
-        return redirect(url_for('index'))  # Redirect to dashboard after deletion
+            # **Log action on blockchain (with admin's Ethereum address)**
+            cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
+            admin_eth_address = cursor.fetchone()[0]
+            log_action(admin_eth_address, "admin", f"Removed doctor {doctor_id}")
+            db.commit()
+            db.close()
+            return {"success": True, "message": "Doctor removed successfully!"}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 400
+        # return redirect(url_for('admin_dashboard'))  # Redirect to dashboard after deletion
+        # return {"success": True, "message": "Doctor removed successfully!"}, 200
+        # return redirect(url_for('index'))  # Redirect to dashboard after deletion
 
-# Route to handle Remove Patient form submission
-@app.route('/remove-patient', methods=['POST'])
-def remove_patient():
-    if request.method == 'POST':
-        admin_id=session.get('user_id')
-        patient_id = request.form['patientId']
-        db = get_db_connection()
-        cursor = db.cursor()
-        cursor.execute('DELETE FROM patients WHERE id = %s', (patient_id,))
-        db.commit()
-        
-
-        # **Log action on blockchain (with admin's Ethereum address)**
-        cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
-        admin_eth_address = cursor.fetchone()[0]
-        db.close()
-
-        log_action(admin_eth_address, "admin", f"Removed doctor {patient_id}")
-
-        return redirect(url_for('index'))  # Redirect to dashboard after deletion
 
 # Route to Book appointemnt form submission
 @app.route('/book-appointment', methods=['POST'])
@@ -393,8 +378,9 @@ def book_appointment():
         ''', (patient_id, doctor_id, department_id, date, 'Pending'))
         db.commit()
         db.close()
-
+        print("in app")
         return {"success": True, "message": "Appointment booked successfully!"}, 200
+        # return redirect(url_for('admin_dashboard'))
     except Exception as e:
         return {"success": False, "message": str(e)}, 400
 
@@ -440,7 +426,7 @@ def check_logs():
                 "action": log[3],
                 "timestamp": log[4]
             })
-            print(logs)
+            # print(logs)
 
         # Close the database connection
         db.commit()
@@ -627,13 +613,18 @@ def get_prescription_history(patient_id):
 
         # Fetch all prescriptions from blockchain
         prescriptions_raw = contract.functions.getAllPrescriptions(patient_address).call()
+        if not prescriptions_raw:
+            return jsonify({"success": False, "message": "No prescriptions found on blockchain"}), 404
+
         # Decryption key (same key used in encryption)
         password = 'MySecurePassword123!'
         key = generate_key(password)
+        print("OK  in getting history")
 
         # Format the prescription history
         prescriptions = []
         for pres in prescriptions_raw:
+            print("in process")
             # print("medicine",pres[3])
             db = get_db_connection()
             cursor = db.cursor(dictionary=True)
@@ -653,18 +644,12 @@ def get_prescription_history(patient_id):
                 "comments": pres[6],
                 "timestamp": pres[7]
             })
-
-        # **Log action on blockchain (with doctors's Ethereum address)**
-        cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
-        doctor_eth_address = cursor.fetchone()[0]
-        db.commit()
-        db.close()
-
-        log_action(doctor_eth_address, "doctor", f"accessed prescription history of patient {patient_id}")
-
+            db.close()
+        # print("done process")
 
         return jsonify({"success": True,"patient": patient_row, "prescriptions": prescriptions}), 200
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
 
     
@@ -732,7 +717,7 @@ def request_appointment():
         db.commit()
         db.close()
 
-        return {"success": True, "message": "Appointment request submitted successfully!"}, 200
+        return redirect(url_for('patient_dashboard'))
     except Exception as e:
         return {"success": False, "message": str(e)}, 400
 

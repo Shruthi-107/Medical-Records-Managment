@@ -173,22 +173,6 @@ checkLogs.addEventListener('click', () => {
         .catch(err => console.error('Error fetching logs:', err));
 });
 
-// Form submission function
-function submitForm(formId, route) {
-    setTimeout(() => {
-        const form = document.getElementById(formId);
-        if (!form) return;
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(form);
-            fetch(route, { method: 'POST', body: formData })
-                .then(response => response.json())
-                .then(data => { alert('Success!'); window.location.reload(); })
-                .catch(error => console.error('Error:', error));
-        });
-    }, 100);
-}
-
 
 // Remove Doctor form submission
 removeDoctor.addEventListener('click', () => {
@@ -207,25 +191,26 @@ removeDoctor.addEventListener('click', () => {
              </fieldset>
         </form>
     `;
+    submitForm('remove-doctor-form', apiRoutes.removeDoctor);
 });
 
 // Remove Patient form submission
-removePatient.addEventListener('click', () => {
-    content.innerHTML = `
-        <form id="remove-patient-form" method="POST" action="/remove-patient">
-            <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
-                <legend style="text-align: center;color:#fe4066"><h2>Remove Patient</h2></legend>
-                <table cellspacing="15px">
-                        <tr>
-                            <td><label for="patientId">Patient ID:</label></td>
-                            <td><input type="text" id="patientId" name="patientId" required></td>
-                </table>
-                <br>
-                <button type="submit" style="margin-left: 30%;">Remove Patient</button>
-            </fieldset>
-        </form>
-    `;
-});
+// removePatient.addEventListener('click', () => {
+//     content.innerHTML = `
+//         <form id="remove-patient-form" method="POST" action="/remove-patient">
+//             <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
+//                 <legend style="text-align: center;color:#fe4066"><h2>Remove Patient</h2></legend>
+//                 <table cellspacing="15px">
+//                         <tr>
+//                             <td><label for="patientId">Patient ID:</label></td>
+//                             <td><input type="text" id="patientId" name="patientId" required></td>
+//                 </table>
+//                 <br>
+//                 <button type="submit" style="margin-left: 30%;">Remove Patient</button>
+//             </fieldset>
+//         </form>
+//     `;
+// });
 
 // Book appointment
 bookAppointment.addEventListener('click', () => {
@@ -288,91 +273,11 @@ bookAppointment.addEventListener('click', () => {
                 ${filteredDoctors.map(doc => `<option value="${doc.id}">${doc.name}</option>`).join('')}
             `;
         });
+        submitForm('book-appointment-form', apiRoutes.bookAppointment);
     });
 });
 
-
-
-// checkLogs.addEventListener('click', () => {
-//     fetch(apiRoutes.checkLogs)
-//         .then(response => response.json())
-//         .then(data => {
-//             if (data.success) {
-//                 // Generate log table
-//                 let logsTable = `
-//                     <h2>System Logs</h2>
-//                     <table style="border:3px solid #fe4066;border-collapse: collapse; width: 100%;">
-//                         <thead>
-//                             <tr style="border:3px solid #fe4066">
-//                                 <th style="border:3px solid #fe4066; padding:10px">ID</th>
-//                                 <th style="border:3px solid #fe4066; padding:10px">User</th>
-//                                 <th style="border:3px solid #fe4066; padding:10px">Role</th>
-//                                 <th style="border:3px solid #fe4066; padding:10px">Action</th>
-//                                 <th style="border:3px solid #fe4066; padding:10px">Timestamp</th>
-//                             </tr>
-//                         </thead>
-//                         <tbody>
-//                 `;
-
-//                 // Append each log entry
-//                 data.logs.forEach(log => {
-//                     logsTable += `
-//                         <tr style="border:3px solid #fe4066">
-//                             <td style="border:3px solid #fe4066; padding:10px">${log.id}</td>
-//                             <td style="border:3px solid #fe4066; padding:10px">${log.user}</td>
-//                             <td style="border:3px solid #fe4066; padding:10px">${log.role}</td>
-//                             <td style="border:3px solid #fe4066; padding:10px">${log.action}</td>
-//                             <td style="border:3px solid #fe4066; padding:10px">${new Date(log.timestamp * 1000).toLocaleString()}</td>
-//                         </tr>
-//                     `;
-//                 });
-
-//                 logsTable += `</tbody></table>`;
-//                 content.innerHTML = logsTable;
-//             } else {
-//                 alert("Error fetching logs: " + data.message);
-//             }
-//         })
-//         .catch(err => console.error('Error fetching logs:', err));
-// });
-
-
-// Function to handle form submission using fetch
-// function submitForm(formId, route) {
-//     const form = document.getElementById(formId);
-//     form.addEventListener('submit', function(e) {
-//         e.preventDefault();  // Prevent the default form submission
-//         const formData = new FormData(form);
-        
-//         fetch(route, {
-//             method: 'POST',
-//             body: formData
-//         })
-//         .then(response => response.json())
-//         .then(data => {
-//             alert('Data submitted successfully!');
-//             window.location.reload();  // Reload the page to show updated data
-//         })
-//         .catch(error => console.error('Error:', error));
-//     });
-// }
-// Form submission function
-// function submitForm(formId, route) {
-//     setTimeout(() => {
-//         const form = document.getElementById(formId);
-//         if (!form) return;
-//         form.addEventListener('submit', function (e) {
-//             e.preventDefault();
-//             const formData = new FormData(form);
-//             fetch(route, { method: 'POST', body: formData })
-//                 .then(response => response.json())
-//                 .then(data => { alert('Success!'); window.location.reload(); })
-//                 .catch(error => console.error('Error:', error));
-//         });
-//     }, 100);
-// }
-
-//function to logout
+// Logout functionality
 logout.addEventListener('click', () => {
     fetch(apiRoutes.logout, { method: 'POST' })
         .then(() => {
@@ -382,10 +287,74 @@ logout.addEventListener('click', () => {
         .catch(err => console.error('Error during logout:', err));
 });
 
+// Function to handle form submission
+function submitForm(formId, route) {
+    const form = document.getElementById(formId);
+    if (!form) return;
 
-// Call the submitForm function for Add Doctor and Add Patient forms
-submitForm('add-doctor-form', '/add-doctor');
-submitForm('add-patient-form', '/add-patient');
-submitForm('remove-doctor-form', '/remove-doctor');
-submitForm('remove-patient-form', '/remove-patient');
-submitForm('book-appointment-form', '/book-appointment');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent the default form submission
+        console.log(`Form ${formId} is being submitted to ${route}`);
+        const formData = new FormData(form);
+        console.log(`Form data: ${[...formData.entries()]}`);
+        fetch(route, {
+            method: 'POST',
+            body: formData
+        })
+        .then(
+            response => {
+                console.log(`Response status: ${response.status}`);
+                return response.json();
+            })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                showPopup("✅ Success", data.message, "success");
+                form.reset(); // Reset form after successful submission
+            } else {
+                showPopup("⚠️ Error", data.message, "error");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showPopup("❌ Error", "Something went wrong!", "error");
+        });
+    });
+}
+
+// Function to display popup messages
+function showPopup(title, message, type) {
+    let bgColor;
+    if (type === "success") bgColor = "green";
+    else if (type === "error") bgColor = "red";
+    else bgColor = "blue";
+
+    const popup = document.createElement("div");
+    popup.innerHTML = `<strong>${title}:</strong> ${message}`;
+    popup.style.position = "fixed";
+    popup.style.top = "20px";
+    popup.style.left = "50%";
+    popup.style.transform = "translateX(-50%)";
+    popup.style.backgroundColor = bgColor;
+    popup.style.color = "white";
+    popup.style.padding = "15px";
+    popup.style.borderRadius = "5px";
+    popup.style.zIndex = "1000";
+    popup.style.fontSize = "16px";
+    popup.style.boxShadow = "0px 4px 6px rgba(0, 0, 0, 0.2)";
+    popup.style.maxWidth = "80%";
+    popup.style.textAlign = "center";
+
+    document.body.appendChild(popup);
+
+    setTimeout(() => { popup.remove(); }, 3000);  // Auto-remove after 3 seconds
+}
+
+// Add event listeners for forms
+document.addEventListener("DOMContentLoaded", () => {
+    submitForm('add-doctor-form', apiRoutes.addDoctor);
+    submitForm('add-patient-form', apiRoutes.addPatient);
+    submitForm('remove-doctor-form', apiRoutes.removeDoctor);
+    submitForm('book-appointment-form', apiRoutes.bookAppointment);
+    
+});

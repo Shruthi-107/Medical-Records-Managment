@@ -33,12 +33,12 @@
               </a>
             </li>
             <br>
-            <li>
+            <!-- <li>
               <a href="#" id="remove-patient">
                 <i class="zmdi zmdi-calendar"></i> Remove Patient
               </a>
             </li>
-            <br>
+            <br> -->
             <li>
               <a href="#" id="book-appointment">
                 <i class="zmdi zmdi-info-outline"></i> Book Appointment
@@ -74,7 +74,6 @@
             addDoctor: "{{ url_for('add_doctor') }}",
             addPatient: "{{ url_for('add_patient') }}",
             removeDoctor: "{{ url_for('remove_doctor') }}",
-            removePatient: "{{ url_for('remove_patient') }}",
             bookAppointment: "{{ url_for('book_appointment') }}",
             checkLogs:"{{url_for('check_logs')}}",
             logout: "{{ url_for('logout') }}"
@@ -83,6 +82,6 @@
     <script src="{{ url_for('static', filename='management.js') }}"></script>
       <!-- <script src="/static/management.js"></script> -->
       <!-- <script src="{{ url_for('static', filename='management.js') }}"></script> -->
-
+      <!-- {"success": False, "message": str(e)}, 400 -->
 </body>
 </html>

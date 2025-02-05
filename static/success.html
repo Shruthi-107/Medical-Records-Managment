@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Success</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        .message-box {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .redirect {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="message-box">
+        <h2>✅ Action Successful!</h2>
+        <p>Your request has been completed successfully.</p>
+    </div>
+
+    <p class="redirect">You will be redirected shortly...</p>
+
+    <script>
+        setTimeout(() => {
+            const redirectUrl = "{{ redirect_url }}";  // Get URL from Flask
+            window.location.href = redirectUrl;
+        }, 3000); // Redirect after 3 seconds
+    </script>
+
+</body>
+</html>
