@@ -5,7 +5,7 @@ from datetime import timedelta
 from functools import wraps
 from Crypto.Cipher import AES, PKCS1_OAEP
 from cryptography.fernet import Fernet
-from Crypto.PublicKey import RSA
+from Crypto.PublicKey import RSA ####Rivest-Shamir-Adleman
 import smtplib
 from email.mime.text import MIMEText
 from Crypto.Random import get_random_bytes
@@ -20,6 +20,7 @@ import base64
 import os
 import mysql.connector
 
+##Rivest-Shamir-Adleman
 # AES key size and padding function
 BLOCK_SIZE = 16  # AES block size
 SECRET_KEY = Fernet.generate_key()
@@ -52,6 +53,7 @@ def rencrypt_data(data, public_key):
     
     encrypted = cipher.encrypt(data.encode("utf-8"))
     return base64.b64encode(encrypted).decode("utf-8")  # Convert to Base64 before storing
+
 def rdecrypt_data(encrypted_data, private_key):
     key = RSA.import_key(private_key)
     cipher = PKCS1_OAEP.new(key)
@@ -170,7 +172,7 @@ with open("build/contracts/MedicalRecords.json", "r") as file:
     contract_data = json.load(file)
 
 contract_abi = contract_data["abi"]
-contract_address = "0xD4216fA67e590046B9F717d50C0b99a2e1c2355E"  # Replace with the deployed contract address
+contract_address = "0x2Cb0fcfcDf9607881298126381b56FB75a0079dc"  # Replace with the deployed contract address
 
 # Create contract instance
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
@@ -860,7 +862,7 @@ def patient_profile():
         # Parse JSON data from request
         data = request.get_json()
         private_key = data.get('private_key')
-        print(private_key)
+        # print(private_key)
         if not private_key:
             return jsonify({"success": False, "message": "Private key is missing"}), 400
 
