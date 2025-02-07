@@ -25,7 +25,23 @@ function fetchPatientData(route) {
 
 // Display patient's profile
 patientprofile.addEventListener('click', () => {
-    fetchPatientData(apiRoutes.patientprofile).then(data => {
+    // Prompt patient for their private key
+    const privateKey = prompt("Enter your private key to decrypt prescriptions:");
+
+    if (!privateKey) {
+        alert("Private key is required to decrypt prescriptions.");
+        return;
+    }
+
+    // Send private key along with the request
+    fetch(apiRoutes.patientprofile, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ private_key: privateKey }) // Send private key
+    })
+    .then(response => response.json()).then(data => {
         console.log(data); // Debug: log the fetched data
         if (data.success) {
             const profile = data['patient-profile']; // Extract the "patient-profile" object
@@ -51,6 +67,35 @@ patientprofile.addEventListener('click', () => {
                         </tr>
                 </table>
             </fieldset>
+
+            <br>
+                        <br>
+                        <br>
+                        
+                        <h2 style="color:#fe4066">Prescriptions</h2>
+                        <table style="border:3px solid #fe4066; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border:3px solid #fe4066">
+                                    <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Timings</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Days</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Date Issued</th>
+                                    <th style="border:3px solid #fe4066; padding:10px">Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prescriptions-body">
+                                ${data.prescriptions.map(prescription => ` 
+                                    <tr style="border:3px solid #fe4066">
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.timestamp}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.comments}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+
             `;
         } else {
             content.innerHTML = `

@@ -3,12 +3,17 @@ from flask import Flask, json, render_template, request, redirect, url_for, sess
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
 from functools import wraps
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, PKCS1_OAEP
 from cryptography.fernet import Fernet
+from Crypto.PublicKey import RSA
+import smtplib
+from email.mime.text import MIMEText
+from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 import base64
 import os
 from hashlib import sha256
+import datetime
 
 # from Cryptodome.Cipher import AES
 import base64
@@ -33,6 +38,7 @@ def encrypt_data(data: str, key: bytes):
     return iv + ct  # Return IV + Ciphertext
 
 def decrypt_data(enc_data: str, key: bytes):
+    
     """Decrypt data using AES"""
     iv = base64.b64decode(enc_data[:24])  # Extract IV (first 16 bytes)
     ct = base64.b64decode(enc_data[24:])  # Extract ciphertext
@@ -40,6 +46,54 @@ def decrypt_data(enc_data: str, key: bytes):
     decrypted_data = unpad(cipher.decrypt(ct), BLOCK_SIZE)
     return decrypted_data.decode('utf-8')
 
+def rencrypt_data(data, public_key):
+    key = RSA.import_key(public_key)
+    cipher = PKCS1_OAEP.new(key)
+    
+    encrypted = cipher.encrypt(data.encode("utf-8"))
+    return base64.b64encode(encrypted).decode("utf-8")  # Convert to Base64 before storing
+def rdecrypt_data(encrypted_data, private_key):
+    key = RSA.import_key(private_key)
+    cipher = PKCS1_OAEP.new(key)
+    
+    try:
+        decoded_encrypted_data = base64.b64decode(encrypted_data)  # Ensure correct decoding
+        decrypted = cipher.decrypt(decoded_encrypted_data).decode("utf-8").strip()
+        return decrypted
+    except Exception as e:
+        print(f"Decryption failed: {e}")
+        return "[Decryption Failed]"
+    
+def generate_keys(user_address, email):
+    key = RSA.generate(2048)
+    
+    public_key = key.publickey().export_key().decode()
+    private_key = key.export_key().decode()
+
+    # Send private key via email
+    send_private_key_email(email, private_key)
+
+    # Store public key in smart contract
+    tx_hash = contract.functions.setPublicKey(user_address,public_key).transact({"from": web3.eth.accounts[0]})
+    web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    print(f"Public key stored on blockchain for {user_address}")
+    return public_key
+
+def send_private_key_email(email, private_key):
+    msg = MIMEText(f"Your private key:\n\n{private_key}\n\nKeep this secure and do not share it!")
+    msg["Subject"] = "Your Private Key for Secure Access"
+    msg["From"] = "shruthichintakayala@gmail.com"
+    msg["To"] = email
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login("shruthichintakayala@gmail.com", "mdic jeom grgf ovae")
+            server.sendmail("shruthichintakayala@gmail.com", email, msg.as_string())
+
+        print(f"Private key sent to {email}")
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
 
 app = Flask(__name__)
 app.secret_key = 'aP9s8d7f6g5h4j3k2l1m0n9b8v7c6x5z4'  # Replace with a secure key
@@ -116,7 +170,7 @@ with open("build/contracts/MedicalRecords.json", "r") as file:
     contract_data = json.load(file)
 
 contract_abi = contract_data["abi"]
-contract_address = "0x1eF0E7432b80EF09566D820157a926E470Bb6608"  # Replace with the deployed contract address
+contract_address = "0xD4216fA67e590046B9F717d50C0b99a2e1c2355E"  # Replace with the deployed contract address
 
 # Create contract instance
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
@@ -404,18 +458,23 @@ def add_patient():
         eth_address = account.address
         private_key = account.key.hex()
 
+        # Generate RSA Key Pair for the Patient
+        public_key = generate_keys(eth_address, email)  # Sends private key via email
+        print("Public key",public_key)
         db = get_db_connection()
         cursor = db.cursor()
         cursor.execute('''
-            INSERT INTO patients (name, email, phone, password, eth_address,department_id, doctor_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''', (name, email, phone, hashed_password, eth_address, department_id, doctor_id))
+            INSERT INTO patients (name, email, phone, password, eth_address, department_id, doctor_id, public_key)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (name, email, phone, hashed_password, eth_address, department_id, doctor_id, public_key))
         db.commit()
+        print("in to blockchain")
         
 
          # **Log action on blockchain (with admin's Ethereum address)**
         cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
         admin_eth_address = cursor.fetchone()[0]
+        print("again in to blockchain")
 
         log_action(admin_eth_address, "admin", f"Added patient {name}")
         db.commit()
@@ -434,12 +493,17 @@ def remove_doctor():
             doctor_id = request.form['doctorId']
             db = get_db_connection()
             cursor = db.cursor()
+            cursor.execute('select name FROM doctors WHERE id = %s', (doctor_id,))
+            doctor=cursor.fetchone()
+            doctor_name=doctor[0]
+
+            cursor = db.cursor()
             cursor.execute('DELETE FROM doctors WHERE id = %s', (doctor_id,))
 
             # **Log action on blockchain (with admin's Ethereum address)**
             cursor.execute("SELECT eth_address FROM management WHERE id = %s", (admin_id,))
             admin_eth_address = cursor.fetchone()[0]
-            log_action(admin_eth_address, "admin", f"Removed doctor {doctor_id}")
+            log_action(admin_eth_address, "admin", f"Removed doctor {doctor_name}")
             db.commit()
             db.close()
             return {"success": True, "message": "Doctor removed successfully!"}, 200
@@ -562,10 +626,11 @@ def my_patients():
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     cursor.execute('''
-        SELECT id, name, email, phone, department_id
-        FROM patients
-        WHERE doctor_id = %s
-    ''', (doctor_id,))
+        SELECT DISTINCT p.id, p.name AS patient_name, p.email, p.phone
+            FROM patients p
+            JOIN appointments a ON a.patient_id = p.id
+            WHERE a.doctor_id = %s
+        ''', (doctor_id,))
     patients = cursor.fetchall()
     print(patients)
     db.close()
@@ -590,19 +655,6 @@ def get_patient_details(patient_id):
         # Fetch prescriptions
         cursor.execute('SELECT medication, timings, days, date_issued, comments FROM prescriptions WHERE patient_id = %s', (patient_id,))
         prescriptions = cursor.fetchall()
-        print("ok 2")
-        # Decryption key (same key used in encryption)
-        password = 'MySecurePassword123!'
-        key = generate_key(password)
-
-        # Decrypt prescription data
-        for prescription in prescriptions:
-            try:
-                encrypted_medication = prescription['medication']  # Decode from Base64
-                prescription['medication'] = decrypt_data(encrypted_medication, key)  # Decrypt
-            except Exception as decrypt_error:
-                prescription['medication'] = f"Decryption Error: {str(decrypt_error)}"  # Handle errors gracefully
-
         print("ok 3")
         # Log action on blockchain (with doctor's Ethereum address)
         cursor.execute("SELECT eth_address FROM doctors WHERE id = %s", (doctor_id,))
@@ -617,7 +669,7 @@ def get_patient_details(patient_id):
         db.commit()
         db.close()
 
-        log_action(doctor_eth_address, "doctor", f"Accessed patient {patient_id}")
+        log_action(doctor_eth_address, "doctor", f"Accessed patient {patient['name']}")
 
         return jsonify({"success": True, "patient": patient, "prescriptions": prescriptions}), 200
     except Exception as e:
@@ -634,9 +686,9 @@ def add_prescription_doc():
         days = int(request.form['days'])
         comments = request.form['comments']
 
-        password = 'MySecurePassword123!'
-        key = generate_key(password)
-        encrypted_prescription = encrypt_data(medication, key)
+        # password = 'MySecurePassword123!'
+        # key = generate_key(password)
+        # encrypted_prescription = encrypt_data(medication, key)
 
         # Get Ethereum addresses from the database
         db = get_db_connection()
@@ -647,7 +699,17 @@ def add_prescription_doc():
         cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
         patient_address = cursor.fetchone()[0]
         db.close()
-        # print(doctor_address, patient_address, encrypted_prescription)
+
+        # Fetch patient's RSA public key from blockchain
+        patient_public_key = contract.functions.publicKeys(patient_address).call()
+        if not patient_public_key:
+            return {"success": False, "message": "Patient's public key not found"}, 400
+        
+        # # Convert public key to RSA format and encrypt prescription
+        # rsa_key = RSA.import_key(patient_public_key)
+        # cipher = PKCS1_OAEP.new(rsa_key)
+        encrypted_prescription = rencrypt_data(medication, patient_public_key)
+
 
         # Add prescription to blockchain
         add_prescription(doctor_address, patient_address, encrypted_prescription, timings, days, comments)
@@ -729,7 +791,7 @@ def get_prescription_history(patient_id):
                 "id": pres[0],
                 "doctor": doctor_name,
                 "patient": pres[2],
-                "medication": decrypt_data(pres[3], key),
+                "medication": pres[3], ###.
                 "timings": pres[4],
                 "days": pres[5],
                 "comments": pres[6],
@@ -766,27 +828,72 @@ def my_appointments():
 
 ############################################ Patient Dashboard #####################################
 
-@app.route('/patient/patient-profile', methods=['GET'])
+# from flask import request, jsonify
+# from flask_login import login_required
+# from Crypto.PublicKey import RSA
+# from Crypto.Cipher import PKCS1_OAEP
+# import base64
+
+@app.route('/patient/patient-profile', methods=['POST'])
 @login_required(role='patient')
 def patient_profile():
-    """Fetch and display the logged-in patient's profile."""
-    patient_id = session.get('user_id')  # Retrieve logged-in doctor ID from session
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute('''
-        SELECT p.name, p.email, p.phone, dep.name AS department
-        FROM patients p
-        LEFT JOIN departments dep ON p.department_id = dep.id
-        WHERE p.id = %s
-    ''', (patient_id,))
-    patient = cursor.fetchone()
-    # print(doctor)
-    db.close()
+    try:
+        patient_id = session.get('user_id')  # Retrieve logged-in patient ID from session
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute('''
+            SELECT p.name, p.email, p.phone, dep.name AS department
+            FROM patients p
+            LEFT JOIN departments dep ON p.department_id = dep.id
+            WHERE p.id = %s
+        ''', (patient_id,))
+        patient = cursor.fetchone()
+        db.commit()
+        cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
+        patient_row = cursor.fetchone()
+        patient_address = patient_row["eth_address"]
+        db.close()
 
-    if patient:
-        return {"success": True, "patient-profile": patient}, 200
-    else:
-        return {"success": False, "message": "patient not found!"}, 404
+        if not patient:
+            return jsonify({"success": False, "message": "Patient not found!"}), 404
+
+        # Parse JSON data from request
+        data = request.get_json()
+        private_key = data.get('private_key')
+        print(private_key)
+        if not private_key:
+            return jsonify({"success": False, "message": "Private key is missing"}), 400
+
+        # Load patient's RSA private key
+        # rsa_key = RSA.import_key(private_key)
+        # cipher = PKCS1_OAEP.new(rsa_key)
+
+        # Fetch prescriptions
+        prescriptions_raw = contract.functions.getAllPrescriptions(patient_address).call()
+        if not prescriptions_raw:
+            return jsonify({"success": False, "message": "No prescriptions found on blockchain"}), 404
+
+        # Decrypt prescriptions
+        prescriptions = []
+        for pres in prescriptions_raw:
+            decrypted_medication = rdecrypt_data(pres[3], private_key)
+
+            prescriptions.append({
+                "id": pres[0],
+                "doctor": pres[1],
+                "patient": pres[2],
+                "medication": decrypted_medication,
+                "timings": pres[4],
+                "days": pres[5],
+                "comments": pres[6],
+                "timestamp": datetime.datetime.fromtimestamp(pres[7])
+            })
+
+        return jsonify({"success": True, "patient-profile": patient, "prescriptions": prescriptions}), 200
+    except ValueError as e:
+        return jsonify({"success": False, "message": "RSA key format is not supported: " + str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/request-appointment', methods=['POST'])
 @login_required(role='patient')

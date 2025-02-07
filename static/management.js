@@ -347,7 +347,7 @@ function showPopup(title, message, type) {
 
     document.body.appendChild(popup);
 
-    setTimeout(() => { popup.remove(); }, 3000);  // Auto-remove after 3 seconds
+    setTimeout(() => { popup.remove(); }, 10000);  // Auto-remove after 3 seconds
 }
 
 // Add event listeners for forms

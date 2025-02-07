@@ -143,7 +143,9 @@ content.addEventListener('click', (e) => {
                     data.prescriptions.forEach(prescription => {
                         historyContent += `
                             <tr style="border:3px solid #fe4066">
-                                <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
+                                <td style="border:3px solid #fe4066; padding:10px" title="${prescription.medication}">
+                                            ${prescription.medication.length > 20 ? prescription.medication.substring(0, 20) + '...' : prescription.medication}
+                                </td>
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.doctor || "Unknown"}</td>
@@ -214,7 +216,9 @@ content.addEventListener('click', (e) => {
                             <tbody id="prescriptions-body">
                                 ${data.prescriptions.map(prescription => ` 
                                     <tr style="border:3px solid #fe4066">
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
+                                        <td style="border:3px solid #fe4066; padding:10px" title="${prescription.medication}">
+                                            ${prescription.medication.length > 20 ? prescription.medication.substring(0, 20) + '...' : prescription.medication}
+                                        </td>
                                         <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
                                         <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
                                         <td style="border:3px solid #fe4066; padding:10px">${prescription.date_issued}</td>
@@ -278,7 +282,7 @@ mypatients.addEventListener('click', () => {
                         patient => `
                         <tr style="border:3px solid #fe4066">
                             <td style="border:3px solid #fe4066; padding:10px">${patient.id}</td>
-                            <td style="border:3px solid #fe4066; padding:10px">${patient.name}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${patient.patient_name}</td>
                             <td style="border:3px solid #fe4066; padding:10px">${patient.email}</td>
                             <td style="border:3px solid #fe4066; padding:10px">${patient.phone}</td>
                             <td style="border:3px solid #fe4066; padding:10px">
@@ -334,7 +338,7 @@ myappointments.addEventListener('click', () => {
                         <td style="border:3px solid #fe4066; padding:10px">${appt.id}</td>
                         <td style="border:3px solid #fe4066; padding:10px">${appt.patient_name}</td>
                         <td style="border:3px solid #fe4066; padding:10px">${appt.date}</td>
-                        <td style="border:3px solid #fe4066; padding:10px">${appt.status}</td>
+                         <td style="border:3px solid #fe4066; padding:10px;display:none;">${appt.status}</td>
                     </tr>
                 `
                 )
@@ -348,7 +352,7 @@ myappointments.addEventListener('click', () => {
                             <th style="border:3px solid #fe4066; padding:10px">ID</th>
                             <th style="border:3px solid #fe4066; padding:10px">Patient Name</th>
                             <th style="border:3px solid #fe4066; padding:10px">Date</th>
-                            <th style="border:3px solid #fe4066; padding:10px">Status</th>
+                            <th style="border:3px solid #fe4066; padding:10px;display:none;">Status</th>
                         </tr>
                     </thead>
                     <tbody>${appointmentRows}</tbody>
