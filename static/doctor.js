@@ -96,76 +96,93 @@ function attachAddPrescriptionHandler() {
 }
 
 //history page
+// content.addEventListener('click', (e) => {
+//     if (e.target && e.target.classList.contains('history-button')) {
+//         const patientId = e.target.getAttribute('data-id');
+
+//         fetch(`/doctor/get-history/${patientId}`)
+//             .then(response => response.json())
+//             .then(data => {
+//                 if (data.success) {
+//                     // ✅ Fix: Make sure `data.patient` exists before using it
+//                     if (!data.patient) {
+//                         alert('Patient details not found!');
+//                         return;
+//                     }
+
+//                     const patient = data.patient;
+//                     let historyContent = `
+//                         <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
+//                             <legend style="text-align: center;color:#fe4066"><h2>Patient Profile</h2></legend>
+//                             <table cellspacing="15px">
+//                                 <tr><td><strong>Name:</strong></td><td>${patient.name}</td></tr>
+//                                 <tr><td><strong>Phone:</strong></td><td>${patient.phone}</td></tr>
+//                                 <tr><td><strong>Email:</strong></td><td>${patient.email}</td></tr>
+//                                 <tr><td><strong>Comment:</strong></td><td>${patient.comment || "No comment provided"}</td></tr>
+//                             </table>
+//                         </fieldset>
+//                         <br>
+//                         <br>
+//                         <br>
+//                         <br>
+//                         <h2 style="color:#fe4066;">Prescription History</h2>
+//                         <table style="border:3px solid #fe4066;border-collapse: collapse;">
+//                             <thead>
+//                                 <tr>
+//                                     <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
+//                                     <th style="border:3px solid #fe4066; padding:10px">Timings</th>
+//                                     <th style="border:3px solid #fe4066; padding:10px">Days</th>
+//                                     <th style="border:3px solid #fe4066; padding:10px">Doctor</th>
+//                                     <th style="border:3px solid #fe4066; padding:10px">Issued Date</th>
+//                                 </tr>
+//                             </thead>
+//                             <tbody>
+//                     `;
+
+//                     // Append prescriptions
+//                     data.prescriptions.forEach(prescription => {
+//                         historyContent += `
+//                             <tr style="border:3px solid #fe4066">
+//                                 <td style="border:3px solid #fe4066; padding:10px" title="${prescription.medication}">
+//                                             ${prescription.medication.length > 20 ? prescription.medication.substring(0, 20) + '...' : prescription.medication}
+//                                 </td>
+//                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
+//                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
+//                                 <td style="border:3px solid #fe4066; padding:10px">${prescription.doctor || "Unknown"}</td>
+//                                 <td style="border:3px solid #fe4066; padding:10px">${new Date(prescription.timestamp * 1000).toLocaleString()}</td>
+//                             </tr>
+//                         `;
+//                     });
+
+//                     historyContent += `</tbody></table>`;
+//                     content.innerHTML = historyContent;
+//                 } else {
+//                     alert('Error fetching Prescription History: ' + data.message);
+//                 }
+//             })
+//             .catch(err => console.error('Error fetching Prescription History:', err));
+//     }
+// });
+
+
+// prescription page
 content.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('history-button')) {
         const patientId = e.target.getAttribute('data-id');
 
-        fetch(`/doctor/get-history/${patientId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // ✅ Fix: Make sure `data.patient` exists before using it
-                    if (!data.patient) {
-                        alert('Patient details not found!');
-                        return;
-                    }
-
-                    const patient = data.patient;
-                    let historyContent = `
-                        <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
-                            <legend style="text-align: center;color:#fe4066"><h2>Patient Profile</h2></legend>
-                            <table cellspacing="15px">
-                                <tr><td><strong>Name:</strong></td><td>${patient.name}</td></tr>
-                                <tr><td><strong>Phone:</strong></td><td>${patient.phone}</td></tr>
-                                <tr><td><strong>Email:</strong></td><td>${patient.email}</td></tr>
-                                <tr><td><strong>Comment:</strong></td><td>${patient.comment || "No comment provided"}</td></tr>
-                            </table>
-                        </fieldset>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <h2 style="color:#fe4066;">Prescription History</h2>
-                        <table style="border:3px solid #fe4066;border-collapse: collapse;">
-                            <thead>
-                                <tr>
-                                    <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Timings</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Days</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Doctor</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Issued Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-
-                    // Append prescriptions
-                    data.prescriptions.forEach(prescription => {
-                        historyContent += `
-                            <tr style="border:3px solid #fe4066">
-                                <td style="border:3px solid #fe4066; padding:10px" title="${prescription.medication}">
-                                            ${prescription.medication.length > 20 ? prescription.medication.substring(0, 20) + '...' : prescription.medication}
-                                </td>
-                                <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
-                                <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
-                                <td style="border:3px solid #fe4066; padding:10px">${prescription.doctor || "Unknown"}</td>
-                                <td style="border:3px solid #fe4066; padding:10px">${new Date(prescription.timestamp * 1000).toLocaleString()}</td>
-                            </tr>
-                        `;
-                    });
-
-                    historyContent += `</tbody></table>`;
-                    content.innerHTML = historyContent;
-                } else {
-                    alert('Error fetching Prescription History: ' + data.message);
-                }
-            })
-            .catch(err => console.error('Error fetching Prescription History:', err));
+        fetch('/doctor/request-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patient_id: patientId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+        })
+        .catch(err => console.error('Error requesting history:', err));
     }
 });
 
-
-// prescription page
 content.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('more-button')) {
         const patientId = e.target.getAttribute('data-id');

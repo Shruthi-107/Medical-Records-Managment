@@ -595,6 +595,8 @@ def check_logs():
 
 
 
+
+
 ############################################ Doctor Dashboard #####################################
 
 @app.route('/doctor/my-profile', methods=['GET'])
@@ -807,7 +809,59 @@ def get_prescription_history(patient_id):
         traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
 
-    
+@app.route('/doctor/request-history', methods=['POST'])
+@login_required(role='doctor')
+def request_prescription_history():
+    try:
+        doctor_id = session.get('user_id')
+        patient_id = request.json.get('patient_id')
+
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        # Insert access request into notifications table
+        cursor.execute(
+            "INSERT INTO notifications (doctor_id, patient_id, status) VALUES (%s, %s, %s)",
+            (doctor_id, patient_id, 'pending')
+        )
+        db.commit()
+        db.close()
+
+        return {"success": True, "message": "Request sent to patient!"}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
+@app.route('/doctor/get-approved-history/<int:patient_id>', methods=['GET'])
+@login_required(role='doctor')
+def get_approved_prescriptions(patient_id):
+    try:
+        doctor_id = session.get('user_id')
+
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        # Check if request is approved
+        cursor.execute(
+            "SELECT approved_prescriptions FROM notifications WHERE doctor_id = %s AND patient_id = %s AND status = 'approved'",
+            (doctor_id, patient_id)
+        )
+        request = cursor.fetchone()
+
+        if not request or not request['approved_prescriptions']:
+            return {"success": False, "message": "No access granted!"}, 403
+
+        # Fetch the actual prescription details from the database
+        cursor.execute(
+            "SELECT medication, timings, days, doctor_id, UNIX_TIMESTAMP(date_issued) as timestamp FROM prescriptions WHERE patient_id = %s AND medication IN (%s)",
+            (patient_id, request['approved_prescriptions'])
+        )
+        prescriptions = cursor.fetchall()
+        db.close()
+
+        return {"success": True, "prescriptions": prescriptions}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
 @app.route('/doctor/my-appointments', methods=['GET'])
 @login_required(role='doctor')
 def my_appointments():
@@ -836,13 +890,19 @@ def my_appointments():
 # from Crypto.Cipher import PKCS1_OAEP
 # import base64
 
+from flask import Flask, request, jsonify, session
+import datetime
+import mysql.connector
+
 @app.route('/patient/patient-profile', methods=['POST'])
 @login_required(role='patient')
 def patient_profile():
     try:
-        patient_id = session.get('user_id')  # Retrieve logged-in patient ID from session
+        patient_id = session.get('user_id')  
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
+
+        # Fetch patient details
         cursor.execute('''
             SELECT p.name, p.email, p.phone, dep.name AS department
             FROM patients p
@@ -850,27 +910,38 @@ def patient_profile():
             WHERE p.id = %s
         ''', (patient_id,))
         patient = cursor.fetchone()
-        db.commit()
-        cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
-        patient_row = cursor.fetchone()
-        patient_address = patient_row["eth_address"]
-        db.close()
 
         if not patient:
+            db.close()
             return jsonify({"success": False, "message": "Patient not found!"}), 404
+
+        # Get Ethereum address of patient
+        cursor.execute("SELECT eth_address FROM patients WHERE id = %s", (patient_id,))
+        patient_row = cursor.fetchone()
+        if not patient_row:
+            db.close()
+            return jsonify({"success": False, "message": "Ethereum address not found!"}), 404
+        patient_address = patient_row["eth_address"]
+
+        # Fetch pending doctor requests
+        cursor.execute("""
+            SELECT n.id, d.name AS doctor_name, n.status 
+            FROM notifications n
+            JOIN doctors d ON n.doctor_id = d.id
+            WHERE n.patient_id = %s AND n.status = 'pending'
+        """, (patient_id,))
+        requests = cursor.fetchall() or []  
+
+        db.close()  # ✅ Close DB after all SELECT queries
 
         # Parse JSON data from request
         data = request.get_json()
         private_key = data.get('private_key')
-        # print(private_key)
+
         if not private_key:
             return jsonify({"success": False, "message": "Private key is missing"}), 400
 
-        # Load patient's RSA private key
-        # rsa_key = RSA.import_key(private_key)
-        # cipher = PKCS1_OAEP.new(rsa_key)
-
-        # Fetch prescriptions
+        # Fetch prescriptions from blockchain
         prescriptions_raw = contract.functions.getAllPrescriptions(patient_address).call()
         if not prescriptions_raw:
             return jsonify({"success": False, "message": "No prescriptions found on blockchain"}), 404
@@ -878,7 +949,10 @@ def patient_profile():
         # Decrypt prescriptions
         prescriptions = []
         for pres in prescriptions_raw:
-            decrypted_medication = rdecrypt_data(pres[3], private_key)
+            try:
+                decrypted_medication = rdecrypt_data(pres[3], private_key)
+            except Exception:
+                decrypted_medication = "[Decryption Failed]"
 
             prescriptions.append({
                 "id": pres[0],
@@ -888,14 +962,23 @@ def patient_profile():
                 "timings": pres[4],
                 "days": pres[5],
                 "comments": pres[6],
-                "timestamp": datetime.datetime.fromtimestamp(pres[7])
+                "timestamp": datetime.datetime.fromtimestamp(pres[7]).strftime("%Y-%m-%d %H:%M:%S")
             })
 
-        return jsonify({"success": True, "patient-profile": patient, "prescriptions": prescriptions}), 200
+        return jsonify({
+            "success": True,
+            "patient-profile": patient,
+            "requests": requests,
+            "prescriptions": prescriptions
+        }), 200
+
     except ValueError as e:
         return jsonify({"success": False, "message": "RSA key format is not supported: " + str(e)}), 400
+    except mysql.connector.Error as db_error:
+        return jsonify({"success": False, "message": "Database error: " + str(db_error)}), 500
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
 
 @app.route('/request-appointment', methods=['POST'])
 @login_required(role='patient')
@@ -960,6 +1043,136 @@ def get_available_doctors():
     except Exception as e:
         return {"success": False, "message": str(e)}, 500
 
+@app.route('/patient/get-requests', methods=['GET'])
+@login_required(role='patient')
+def get_pending_requests():
+    try:
+        patient_id = session.get('user_id')
+        
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT n.id, d.name AS doctor_name, n.status 
+            FROM notifications n
+            JOIN doctors d ON n.doctor_id = d.id
+            WHERE n.patient_id = %s AND n.status = 'pending'
+        """, (patient_id,))
+        
+        requests = cursor.fetchall() or []  # Ensure an empty list is returned if no results
+        db.close()
+
+        return {"success": True, "requests": requests}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e), "requests": []}, 500  # Always return requests
+
+
+@app.route('/patient/respond-request', methods=['POST'])
+@login_required(role='patient')
+def respond_request():
+    try:
+        data = request.get_json()
+        request_id = data.get("request_id")
+        action = data.get("action")
+        private_key = data.get("private_key")
+
+        # ✅ Use the private key provided by the patient
+        if not private_key:
+                db.close()
+                return jsonify({"success": False, "message": "Private key is required for decryption"}), 400
+
+        if action not in ['approve', 'deny']:
+            return jsonify({"success": False, "message": "Invalid action"}), 400
+
+        patient_id = session.get('user_id')
+        db = get_db_connection()
+        cursor = db.cursor()
+
+        # Get doctor ID from request
+        cursor.execute("SELECT doctor_id FROM notifications WHERE id = %s", (request_id,))
+        doctor_row = cursor.fetchone()
+        if not doctor_row:
+            db.close()
+            return jsonify({"success": False, "message": "Invalid request ID"}), 404
+
+        doctor_id = doctor_row[0]
+
+        if action == 'approve':
+            # Fetch approved prescriptions
+            cursor.execute("SELECT medication FROM prescriptions WHERE patient_id = %s", (patient_id,))
+            prescriptions = [row[0] for row in cursor.fetchall()]
+
+            # Fetch patient’s private key for decryption
+            # cursor.execute("SELECT private_key FROM patients WHERE id = %s", (patient_id,))
+            # private_key_row = cursor.fetchone()
+            # if not private_key_row:
+            #     db.close()
+            #     return jsonify({"success": False, "message": "Private key not found!"}), 404
+
+            # # private_key = private_key_row[0]
+
+            # Decrypt prescriptions
+            decrypted_prescriptions = [rdecrypt_data(p, private_key) for p in prescriptions]
+            formatted_prescriptions = '\n'.join(decrypted_prescriptions)
+
+            # Fetch doctor's email
+            cursor.execute("SELECT email FROM doctors WHERE id = %s", (doctor_id,))
+            doctor_row = cursor.fetchone()
+            if not doctor_row:
+                db.close()
+                return jsonify({"success": False, "message": "Doctor email not found!"}), 404
+
+            doctor_email = doctor_row[0]
+            db.close()
+
+            # Send email with decrypted prescriptions
+            send_email(doctor_email, formatted_prescriptions)
+            
+        db = get_db_connection()
+        # Update request status
+        cursor = db.cursor()
+        cursor.execute("UPDATE notifications SET status = %s WHERE id = %s", (action, request_id))
+        db.commit()
+        db.close()
+
+        return jsonify({"success": True, "message": f"Request {action}d successfully!"}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+def send_email(receiver_email, message_body):
+    # if 'user_id' not in session:
+    #         return jsonify({"success": False, "message": "User not logged in"}), 401
+
+    patient_id = session['user_id']  # Retrieve logged-in patient's ID from session
+        
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute('SELECT email FROM patients WHERE id = %s', (patient_id,))
+    patient = cursor.fetchone()
+    db.close()
+
+    """Sends an email with the decrypted prescriptions."""
+    sender_email = patient['email']
+    # if(sender_email=="21eg105b33@gmail.com"):
+    #     sender_password="mdic jeom grgf ovae"
+    
+    sender_password = "mdic jeom grgf ovae"
+    msg = MIMEText(f"Here are the decrypted prescriptions:\n\n{message_body}")
+    msg["Subject"] = "Approved Prescription Details"
+    msg["From"] = sender_email
+    msg["To"] = receiver_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+        print(f"✅ Email sent to {receiver_email}")
+    except Exception as e:
+        print(f"❌ Error sending email: {str(e)}")
+    
 
 @app.route('/patient/patient-appointments', methods=['GET'])
 @login_required(role='patient')

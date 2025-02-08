@@ -24,93 +24,138 @@ function fetchPatientData(route) {
 }
 
 // Display patient's profile
-patientprofile.addEventListener('click', () => {
-    // Prompt patient for their private key
-    const privateKey = prompt("Enter your private key to decrypt prescriptions:");
+let patientPrivateKey = null;  // Store private key temporarily
 
-    if (!privateKey) {
+patientprofile.addEventListener('click', () => {
+    patientPrivateKey = prompt("Enter your private key to decrypt prescriptions:");
+
+    if (!patientPrivateKey) {
         alert("Private key is required to decrypt prescriptions.");
         return;
     }
 
-    // Send private key along with the request
     fetch(apiRoutes.patientprofile, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ private_key: privateKey }) // Send private key
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ private_key: patientPrivateKey }) 
     })
-    .then(response => response.json()).then(data => {
-        console.log(data); // Debug: log the fetched data
+    .then(response => response.json())
+    .then(data => {
+        console.log("API Response:", data);
+
         if (data.success) {
-            const profile = data['patient-profile']; // Extract the "patient-profile" object
-            content.innerHTML = `
-            <fieldset style="width: 500px;border: 5px solid #fe4066;border-radius:25px">
-                <legend style="text-align: center;color:#fe4066"><h1>My Profile</h1></legend><br>
+            const profile = data['patient-profile']; 
+
+            let contentHTML = `
+            <fieldset style="width: 500px; border: 5px solid #fe4066; border-radius:25px">
+                <legend style="text-align: center; color:#fe4066"><h1>My Profile</h1></legend><br>
                 <table cellspacing="15px">
-                        <tr>
-                            <td><label for="name"><strong>Name:</strong></label></td>
-                            <td><p> ${profile.name}</p></td>
-                        </tr>
-                        <tr>
-                            <td><label for="email"><strong>Email:</strong></label></td>
-                            <td><p> ${profile.email}</p></td>
-                        </tr>
-                        <tr>
-                            <td><label for="department"><strong>Department:</strong></label></td>
-                            <td><p>${profile.department}</p></td>
-                        </tr>
-                        <tr>
-                            <td><label for="phone"><strong>Phone:</strong></label></td>
-                            <td><p>${profile.phone}</p></td>
-                        </tr>
+                    <tr><td><strong>Name:</strong></td><td>${profile.name}</td></tr>
+                    <tr><td><strong>Email:</strong></td><td>${profile.email}</td></tr>
+                    <tr><td><strong>Department:</strong></td><td>${profile.department}</td></tr>
+                    <tr><td><strong>Phone:</strong></td><td>${profile.phone}</td></tr>
                 </table>
             </fieldset>
+            <br><br><br>
+            
+            <h2 style="color:#fe4066">Pending Doctor Requests</h2>
+            <table id="requests-table" style="border:3px solid #fe4066; border-collapse: collapse;">
+                <thead>
+                    <tr style="border:3px solid #fe4066">
+                        <th style="border:3px solid #fe4066; padding:10px">Doctor Name</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Status</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="requests-body">`;
 
-            <br>
-                        <br>
-                        <br>
-                        
-                        <h2 style="color:#fe4066">Prescriptions</h2>
-                        <table style="border:3px solid #fe4066; border-collapse: collapse;">
-                            <thead>
-                                <tr style="border:3px solid #fe4066">
-                                    <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Timings</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Days</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Date Issued</th>
-                                    <th style="border:3px solid #fe4066; padding:10px">Comments</th>
-                                </tr>
-                            </thead>
-                            <tbody id="prescriptions-body">
-                                ${data.prescriptions.map(prescription => ` 
-                                    <tr style="border:3px solid #fe4066">
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.medication}</td>
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.timestamp}</td>
-                                        <td style="border:3px solid #fe4066; padding:10px">${prescription.comments}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+            if (data.requests && data.requests.length > 0) {
+                data.requests.forEach(request => {
+                    contentHTML += `
+                        <tr style="border:3px solid #fe4066">
+                            <td style="border:3px solid #fe4066; padding:10px">${request.doctor_name}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${request.status}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">
+                                <button class="approve-button" data-id="${request.id}" style="padding:5px 10px; background:#28a745; color:white; border:none; border-radius:5px; cursor:pointer;">Approve</button>
+                                <button class="deny-button" data-id="${request.id}" style="padding:5px 10px; background:#dc3545; color:white; border:none; border-radius:5px; cursor:pointer;">Deny</button>
+                            </td>
+                        </tr>`;
+                });
+            } else {
+                contentHTML += `<tr><td colspan="3" style="text-align:center; padding:10px;">No pending requests</td></tr>`;
+            }
 
-            `;
+            contentHTML += `</tbody></table>`;
+
+            // ✅ Add Prescription Table Back with Styling
+            contentHTML += `
+            <br><br>
+            <h2 style="color:#fe4066">Prescriptions</h2>
+            <table style="border:3px solid #fe4066; border-collapse: collapse;">
+                <thead>
+                    <tr style="border:3px solid #fe4066">
+                        <th style="border:3px solid #fe4066; padding:10px">Medicine</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Timings</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Days</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Date Issued</th>
+                        <th style="border:3px solid #fe4066; padding:10px">Comments</th>
+                    </tr>
+                </thead>
+                <tbody id="prescriptions-body">`;
+
+            if (data.prescriptions && data.prescriptions.length > 0) {
+                data.prescriptions.forEach(prescription => {
+                    contentHTML += `
+                        <tr style="border:3px solid #fe4066">
+                            <td style="border:3px solid #fe4066; padding:10px" title="${prescription.medication}">
+                                ${prescription.medication.length > 20 ? prescription.medication.substring(0, 20) + '...' : prescription.medication}
+                            </td>
+                            <td style="border:3px solid #fe4066; padding:10px">${prescription.timings}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${prescription.days}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${prescription.timestamp}</td>
+                            <td style="border:3px solid #fe4066; padding:10px">${prescription.comments}</td>
+                        </tr>`;
+                });
+            } else {
+                contentHTML += `<tr><td colspan="5" style="text-align:center; padding:10px;">No prescriptions found</td></tr>`;
+            }
+
+            contentHTML += `</tbody></table>`;
+
+            content.innerHTML = contentHTML;
+
+            // Attach event listeners for approve/deny buttons
+            document.querySelectorAll('.approve-button').forEach(button => {
+                button.addEventListener('click', () => handleRequest(button.dataset.id, 'approve', patientPrivateKey));
+            });
+
+            document.querySelectorAll('.deny-button').forEach(button => {
+                button.addEventListener('click', () => handleRequest(button.dataset.id, 'deny', null));
+            });
+
         } else {
-            content.innerHTML = `
-                <h2>My Profile</h2>
-                <p>Error: ${data.message}</p>
-            `;
+            content.innerHTML = `<h2>My Profile</h2><p>Error: ${data.message}</p>`;
         }
-    }).catch(err => {
-        console.error('Error fetching profile data:', err);
-        content.innerHTML = `
-            <h2>My Profile</h2>
-            <p>Error fetching profile data. Please try again later.</p>
-        `;
-    });
+    })
+    .catch(err => console.error("Error fetching profile data:", err));
 });
+
+
+
+function handleRequest(requestId, action, privateKey) {
+    fetch('/patient/respond-request', {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: requestId, action: action, private_key: privateKey })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        patientprofile.click(); // Refresh view after action
+    })
+    .catch(err => console.error("Error responding to request:", err));
+}
+
 
 
 
@@ -361,6 +406,35 @@ patientappointments.addEventListener('click', () => {
     });
 });
 
+fetch('/patient/get-requests')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const requestList = data.requests.map(request => `
+                <tr>
+                    <td>${request.doctor_name}</td>
+                    <td>${request.status}</td>
+                    <td>
+                        <button onclick="respondRequest(${request.id}, 'approve')">Approve</button>
+                        <button onclick="respondRequest(${request.id}, 'deny')">Deny</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('requests-table').innerHTML = requestList;
+        }
+    });
+
+function respondRequest(requestId, action) {
+    fetch('/patient/respond-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, action: action })
+    })
+    .then(response => response.json())
+    .then(data => alert(data.message))
+    .catch(err => console.error('Error responding to request:', err));
+}
 
 
 // Logout functionality
